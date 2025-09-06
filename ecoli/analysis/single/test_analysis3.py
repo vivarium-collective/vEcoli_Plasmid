@@ -39,3 +39,29 @@ polymerized_ntp_ids = bulk_name_to_idx(
     ],
     bulk_molecule_ids,
 )
+# %%
+RNAP_subunits_ids = bulk_name_to_idx(
+    ["EG10893-MONOMER[c]", "RPOC-MONOMER[c]", "RPOB-MONOMER[c]"], bulk_molecule_ids
+)
+
+# %%
+RNase_ids = bulk_name_to_idx(["EG10861[c]", "EG10860[c]"], bulk_molecule_ids)
+
+# %%
+rna_data = sim_data.process.transcription.rna_data
+
+mrna_tu_ids = rna_data["id"][rna_data["is_mRNA"]].tolist()
+
+cistron_data = sim_data.process.transcription.cistron_data
+
+mrna_cistron_ids = cistron_data["id"][cistron_data["is_mRNA"]].tolist()
+
+# %%
+replisome_monomer_subunit_ids = bulk_name_to_idx(
+    ["CPLX0-3621[c]", "EG10239-MONOMER[c]", "EG11500-MONOMER[c]", "EG11412-MONOMER[c]"],
+    bulk_molecule_ids,
+)
+
+replisome_trimer_subunit_ids = bulk_name_to_idx(
+    ["CPLX0-2361[c]", "CPLX0-3761[c]"], bulk_molecule_ids
+)
