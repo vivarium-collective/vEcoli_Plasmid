@@ -34,7 +34,7 @@ from ecoli.processes.partition import PartitionedProcess
 
 
 # Register default topology for this process, associating it with process name
-NAME = "ecoli-chromosome-replication"
+NAME = "ecoli-plasmid-replication"
 TOPOLOGY = {
     "bulk": ("bulk",),
     "active_replisomes": ("unique", "active_replisome"),
@@ -529,39 +529,6 @@ class ChromosomeReplication(PartitionedProcess):
         return update
 
 
-def generate_oriCs(n_oriCs, start_unique_id=3458764513820540928):
-    """
-    Generate a list of oriC tuples for input_state.
-
-    Args:
-        n_oriCs (int): Number of oriCs to generate.
-        start_unique_id (int): Starting value for the unique identifier.
-
-    Returns:
-        list of tuples: Each tuple represents an oriC.
-    """
-    oriC_dtype = [
-        ("domain_index", "<i4"),
-        ("massDiff_rRNA", "<f8"),
-        ("massDiff_tRNA", "<f8"),
-        ("massDiff_mRNA", "<f8"),
-        ("massDiff_miscRNA", "<f8"),
-        ("massDiff_nonspecific_RNA", "<f8"),
-        ("massDiff_protein", "<f8"),
-        ("massDiff_metabolite", "<f8"),
-        ("massDiff_water", "<f8"),
-        ("massDiff_DNA", "<f8"),
-        ("_entryState", "|i1"),
-        ("unique_index", "<i8"),
-    ]
-
-    oriCs_array = np.zeros(n_oriCs, dtype=oriC_dtype)
-    oriCs_array["domain_index"] = np.arange(1, n_oriCs + 1)
-    oriCs_array["_entryState"] = 1
-    oriCs_array["unique_index"] = np.arange(start_unique_id, start_unique_id + n_oriCs)
-    return oriCs_array
-
-
 def test_chromosome_replication():
     from ecoli.library.sim_data import LoadSimData
 
@@ -590,52 +557,31 @@ def test_chromosome_replication():
     }
 
     # many plasmids
-
-    import pandas as pd
-
-    # Suppose process is your ChromosomeReplication instance
-    # and generate_oriCs(n) generates a structured array of n origins
     requests_history = []
     bulk_ids = input_state1["bulk"]["id"]
 
-    for n_oriC in range(2, 21):
-        # Generate input state
-        input_state = {
-            "bulk": initial_state["bulk"],
-            "environment": initial_state["environment"],
-            "active_replisomes": initial_state["unique"]["active_replisome"],
-            "oriCs": generate_oriCs(n_oriC),
-            "chromosome_domains": initial_state["unique"]["chromosome_domain"],
-            "full_chromosomes": initial_state["unique"]["full_chromosome"],
-            "listeners": {
-                "mass": {
-                    "cell_mass": replication_config["criticalInitiationMass"].asNumber()
-                    * n_oriC
-                }
-            },
-            "timestep": replication_config["time_step"],
-        }
+    import pandas as pd
 
-        # Call calculate_request
-        requests = process.calculate_request(input_state["timestep"], input_state)
+    # Call calculate_request
+    requests = process.calculate_request(input_state1["timestep"], input_state1)
 
-        # Convert requests["bulk"] into a flat dictionary
-        bulk_dict = {}
-        for ids, count in requests.get("bulk", []):
-            ids = np.atleast_1d(ids)
-            if np.isscalar(count):
-                count = np.full_like(ids, count, dtype=int)
-            else:
-                count = np.array(count, dtype=int)
-            for idx, cnt in zip(ids, count):
-                mol_name = bulk_ids[idx]  # map from id to molecule name
-                bulk_dict[mol_name] = int(cnt)
+    # Convert requests["bulk"] into a flat dictionary
+    bulk_dict = {}
+    for ids, count in requests.get("bulk", []):
+        ids = np.atleast_1d(ids)
+        if np.isscalar(count):
+            count = np.full_like(ids, count, dtype=int)
+        else:
+            count = np.array(count, dtype=int)
+        for idx, cnt in zip(ids, count):
+            mol_name = bulk_ids[idx]  # map from id to molecule name
+            bulk_dict[mol_name] = int(cnt)
 
-        # Append to history
-        requests_history.append({"n_oriC": n_oriC, **bulk_dict})
+    # Append to history
+    # requests_history.append({"n_oriC": n_oriC, **bulk_dict})
 
-        # call evolve_state
-        # update = process.evolve_state(input_state["timestep"], input_state)
+    # call evolve_state
+    # update = process.evolve_state(input_state1["timestep"], input_state1)
 
     # Convert to dataframe
 

@@ -31,6 +31,22 @@ class MoleculeIds(object):
             "proton": "PROTON[c]",
             "ppi": "PPI[c]",
             "full_chromosome": "CHROM_FULL[c]",
+            "plasmid_ori": "P-ori",  # newly added for plasmid
         }
 
         self.__dict__.update(molecule_ids)
+
+
+def test_molecule_ids():
+    from ecoli.library.sim_data import LoadSimData
+    import pickle
+
+    sim_data_default = "../../../out/plasmidwithsequence/parca/kb/simData.cPickle"
+    load_sim_data = LoadSimData(sim_data_default)
+    with open("../../../out/plasmidwithsequence/parca/kb/rawData.cPickle", "rb") as f:
+        raw_data = pickle.load(f)
+    _molecule_ids = MoleculeIds(raw_data, load_sim_data.sim_data)
+
+
+if __name__ == "__main__":
+    test_molecule_ids()

@@ -30,6 +30,7 @@ class Replication(object):
         self._build_gene_data(raw_data, sim_data)
         self._build_sites(raw_data, sim_data)
         self._build_replication(raw_data, sim_data)
+        self._build_plasmid_replication(raw_data, sim_data)  # for plasmid replication
         self._build_motifs(raw_data, sim_data)
         self._build_elongation_rates(raw_data, sim_data)
 
@@ -46,6 +47,15 @@ class Replication(object):
         self.genome_T_count = self.genome_sequence.count("T")
         self.genome_G_count = self.genome_sequence.count("G")
         self.genome_C_count = self.genome_sequence.count("C")
+
+        # newly added lines for plasmid sequence
+        self.plasmid_sequence = raw_data.plasmid_sequence
+        self.plasmid_sequence_rc = self.plasmid_sequence.reverse_complement()
+        self.plasmid_length = len(self.plasmid_sequence)
+        self.plasmid_A_count = self.plasmid_sequence.count("A")
+        self.plasmid_T_count = self.plasmid_sequence.count("T")
+        self.plasmid_G_count = self.plasmid_sequence.count("G")
+        self.plasmid_C_count = self.plasmid_sequence.count("C")
 
     def _build_gene_data(self, raw_data, sim_data):
         """
@@ -105,6 +115,9 @@ class Replication(object):
         )
         self.terc_coordinate = get_site_center_coordinates(
             sim_data.molecule_ids.terC_site
+        )
+        self.plasmid_ori_coordinate = get_site_center_coordinates(
+            sim_data.molecule_ids.plasmid_ori
         )
 
     def _build_replication(self, raw_data, sim_data):
@@ -318,3 +331,76 @@ class Replication(object):
             ((1 - relative_pos) * self.c_period_in_mins + self.d_period_in_mins) / tau
         )
         return n_avg_copy
+
+    # new function for plasmid replication
+    def _build_plasmid_replication(self, raw_data, sim_data):
+        """Build replication sequences for unidirectional plasmid replication."""
+
+        # Map ATGC to small integers
+        numerical_sequence = np.empty(self.plasmid_length, np.int8)
+        ntMapping = {
+            nt: i for i, nt in enumerate(sim_data.dntp_code_to_id_ordered.keys())
+        }
+        for i, letter in enumerate(raw_data.plasmid_sequence):
+            numerical_sequence[i] = ntMapping[letter]
+
+        # Forward only, starting at oriP, wrapping around
+        self.plasmid_forward_sequence = numerical_sequence[
+            np.hstack(
+                (
+                    np.arange(self.plasmid_ori_coordinate, self.plasmid_length),
+                    np.arange(0, self.plasmid_ori_coordinate),
+                )
+            )
+        ]
+
+        # Complement
+        self.plasmid_forward_complement_sequence = self._get_complement_sequence(
+            self.plasmid_forward_sequence
+        )
+
+        # No need for two replichores, just one
+        self.replichore_lengths = np.array([self.plasmid_forward_sequence.size])
+
+        # Replication matrix → only 2 rows instead of 4
+        maxLen = np.int64(
+            self.plasmid_forward_sequence.size
+            + MAX_TIMESTEP
+            * sim_data.constants.replisome_elongation_rate.asNumber(units.nt / units.s)
+        )
+
+        self.plasmid_replication_sequences = np.empty((2, maxLen), np.int8)
+        self.plasmid_replication_sequences.fill(polymerize.PAD_VALUE)
+
+        self.plasmid_replication_sequences[0, : self.plasmid_forward_sequence.size] = (
+            self.plasmid_forward_sequence
+        )
+        self.plasmid_replication_sequences[
+            1, : self.plasmid_forward_complement_sequence.size
+        ] = self.plasmid_forward_complement_sequence
+
+        # Nucleotide weights are the same as chromosome
+        self.plasmid_replication_monomer_weights = (
+            sim_data.getter.get_masses(sim_data.molecule_groups.dntps)
+            - sim_data.getter.get_masses([sim_data.molecule_ids.ppi])
+        ) / sim_data.constants.n_avogadro
+
+        self.no_child_place_holder = -1
+
+
+def test_replication():
+    from ecoli.library.sim_data import LoadSimData
+    import pickle
+
+    sim_data_default = "../../../../out/plasmidwithsequence/parca/kb/simData.cPickle"
+    load_sim_data = LoadSimData(sim_data_default)
+    with open(
+        "../../../../out/plasmidwithsequence/parca/kb/rawData.cPickle", "rb"
+    ) as f:
+        raw_data = pickle.load(f)
+
+    _replication = Replication(raw_data, load_sim_data.sim_data)
+
+
+if __name__ == "__main__":
+    test_replication()

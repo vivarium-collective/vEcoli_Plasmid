@@ -147,7 +147,16 @@ class GetterFunctions(object):
         given the ID of the site.
         """
         assert isinstance(site_id, str)
-        return self._all_genomic_coordinates[site_id]
+        # changes made here to include both genomic and plasmid dna sites
+        if site_id in self._all_genomic_coordinates:
+            return self._all_genomic_coordinates[site_id]
+        elif site_id in self._all_plasmid_coordinates:
+            return self._all_plasmid_coordinates[site_id]
+        else:
+            raise KeyError(
+                f"Site ID {site_id} not found in genomic or plasmid coordinates"
+            )
+        # return self._all_genomic_coordinates[site_id]
 
     def get_miscrnas_with_singleton_tus(self) -> list[str]:
         """
@@ -979,5 +988,12 @@ class GetterFunctions(object):
         self._all_genomic_coordinates = {
             site["id"]: (site["left_end_pos"], site["right_end_pos"])
             for site in raw_data.dna_sites
+            if site["type"] not in IGNORED_DNA_SITE_TYPES
+        }
+
+        # Defining a new function for plasmid coordinates
+        self._all_plasmid_coordinates = {
+            site["id"]: (site["left_end_pos"], site["right_end_pos"])
+            for site in raw_data.plasmid_dna_sites
             if site["type"] not in IGNORED_DNA_SITE_TYPES
         }

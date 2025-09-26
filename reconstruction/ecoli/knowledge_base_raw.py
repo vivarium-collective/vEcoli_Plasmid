@@ -54,6 +54,7 @@ LIST_OF_DICT_FILENAMES = [
     "metabolites_added.tsv",
     "modified_proteins.tsv",
     "molecular_weight_keys.tsv",
+    "plasmid_dna_sites.tsv",  # adding information about the plasmid ori site
     "ppgpp_fc.tsv",
     "ppgpp_regulation.tsv",
     "ppgpp_regulation_added.tsv",
@@ -130,6 +131,8 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("adjustments", "relative_metabolite_concentrations_changes.tsv"),
 ]
 SEQUENCE_FILE = "sequence.fasta"
+# newly added plasmid sequence
+PLASMID_SEQUENCE_FILE = "plasmidsequence.fasta"
 LIST_OF_PARAMETER_FILENAMES = [
     "dna_supercoiling.tsv",
     "parameters.tsv",
@@ -321,6 +324,11 @@ class KnowledgeBaseEcoli(object):
 
         self.genome_sequence = self._load_sequence(
             os.path.join(FLAT_DIR, SEQUENCE_FILE)
+        )
+
+        # newly added plasmid sequence
+        self.plasmid_sequence = self._load_sequence(
+            os.path.join(FLAT_DIR, PLASMID_SEQUENCE_FILE)
         )
 
         self._prune_data()
