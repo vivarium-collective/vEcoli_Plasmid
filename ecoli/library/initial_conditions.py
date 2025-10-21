@@ -210,6 +210,9 @@ def initialize_unique_molecules(
         bulk_state, unique_molecules, sim_data, random_state, unique_id_rng
     )
 
+    # Initializing plasmid related unique molecules
+    initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng)
+
     return unique_molecules
 
 
@@ -495,6 +498,23 @@ def initialize_full_chromosome(unique_molecules, sim_data, unique_id_rng):
     )
 
 
+# new function to initialize plasmids
+def initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng):
+    """
+    #     Initializes the counts of full plasmids to one. The division_time of
+    #     this initial plasmid is set to be zero for consistency.
+    #"""
+    unique_molecules["full_plasmid"] = create_new_unique_molecules(
+        "full_plasmid",
+        1,
+        sim_data,
+        unique_id_rng,
+        division_time=0.0,
+        has_triggered_division=True,
+        domain_index=0,
+    )
+
+
 def initialize_replication(
     bulk_state,
     unique_molecules,
@@ -518,6 +538,10 @@ def initialize_replication(
     # Calculate length of replichore
     genome_length = sim_data.process.replication.genome_length
     replichore_length = np.ceil(0.5 * genome_length) * units.nt
+
+    # Calculate length of replichore for plasmids
+    plasmid_length = sim_data.process.replication.plasmid_length
+    plasmid_replichore_length = plasmid_length * units.nt
 
     # Calculate the maximum number of replisomes that could be formed with
     # the existing counts of replisome subunits. If mechanistic_replisome option
@@ -551,13 +575,34 @@ def initialize_replication(
         replication_rate,
     )
 
+    # Generate arrays for initial replication conditions for the plasmid
+    plasmid_oric_state, plasmid_replisome_state, plasmid_domain_state = (
+        determine_plasmid_state(
+            plasmid_replichore_length,
+            sim_data.process.replication.no_child_place_holder,
+        )
+    )
+
     n_oric = oric_state["domain_index"].size
     n_replisome = replisome_state["domain_index"].size
     n_domain = domain_state["domain_index"].size
 
+    # for plasmids
+    plasmid_n_oric = plasmid_oric_state["domain_index"].size
+    plasmid_n_replisome = plasmid_replisome_state["domain_index"].size
+    plasmid_n_domain = plasmid_domain_state["domain_index"].size
+
     # Add OriC molecules with the proposed attributes
     unique_molecules["oriC"] = create_new_unique_molecules(
         "oriC", n_oric, sim_data, unique_id_rng, domain_index=oric_state["domain_index"]
+    )
+    # plasmids - Adding new unique molecules with proposed attributes
+    unique_molecules["plasmid_ori"] = create_new_unique_molecules(
+        "oriC",
+        plasmid_n_oric,
+        sim_data,
+        unique_id_rng,
+        domain_index=plasmid_oric_state["domain_index"],
     )
 
     # Add chromosome domain molecules with the proposed attributes
@@ -569,6 +614,19 @@ def initialize_replication(
         domain_index=domain_state["domain_index"],
         child_domains=domain_state["child_domains"],
     )
+
+    # plasmids - Adding plasmid domain molecules with proposed attributes
+    unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+        "chromosome_domain",
+        plasmid_n_domain,
+        sim_data,
+        unique_id_rng,
+        domain_index=plasmid_domain_state["domain_index"],
+        child_domains=plasmid_domain_state["child_domains"],
+    )
+    # unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+    #     "plasmid_domain", plasmid_n_domain, sim_data, unique_id_rng
+    # )
 
     if n_replisome != 0:
         # Update mass of replisomes if the mechanistic replisome option is set
@@ -630,6 +688,11 @@ def initialize_replication(
         # the expected fields
         unique_molecules["active_replisome"] = create_new_unique_molecules(
             "active_replisome", n_replisome, sim_data, unique_id_rng
+        )
+
+        # Creating a similar empty structured array for plasmid active replisomes as well.
+        unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
+            "active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
         )
 
     # Get coordinates of all genes, promoters and DnaA boxes
@@ -1852,6 +1915,57 @@ def determine_chromosome_state(
     }
 
     return oric_state, replisome_state, domain_state
+
+
+# new function to determine plasmid state for replication
+def determine_plasmid_state(
+    plasmid_replichore_length: Unum,
+    place_holder: int,
+) -> tuple[
+    dict[str, npt.NDArray[np.int32]],
+    dict[str, npt.NDArray[Any]],
+    dict[str, npt.NDArray[np.int32]],
+]:
+    """
+    Initialize plasmid ori, replisomes, and domain state at cell cycle start.
+    Replication initiation is regulated by RNAI/RNAII balance.
+    """
+
+    # All inputs must be positive numbers
+    unitless_plasmid_replichore_length = plasmid_replichore_length.asNumber(units.nt)
+    assert unitless_plasmid_replichore_length > 0, "replichore_length must be positive."
+
+    # Start with one plasmid molecule
+    # n_plasmids = 1
+
+    # zero replisome per initiation initially
+    n_replisomes = 1
+    n_domains = 1  # no. of plasmid domains initially
+    coordinates = np.zeros(n_replisomes, dtype=np.int64)
+    domain_index = np.zeros(n_replisomes, dtype=np.int32)
+    right_replichore_replisome = np.zeros(n_replisomes, dtype=bool)
+
+    # Initialize child domain array for plasmid domains
+    child_domains = np.full((n_domains, 2), place_holder, dtype=np.int32)
+
+    # Domain indices
+    domain_index_orip = np.arange(n_domains, dtype=np.int32)  # oriP domain index
+    domain_index_domains = np.arange(
+        n_domains, dtype=np.int32
+    )  # plasmid domain indices
+
+    orip_state = {"domain_index": domain_index_orip}
+    plasmid_replisome_state = {
+        "coordinates": coordinates,
+        "right_replichore": right_replichore_replisome,
+        "domain_index": domain_index,
+    }
+    plasmid_domain_state = {
+        "domain_index": domain_index_domains,
+        "child_domains": child_domains,
+    }
+
+    return orip_state, plasmid_replisome_state, plasmid_domain_state
 
 
 def rescale_initiation_probs(init_probs, TU_index, fixed_synth_probs, fixed_TU_indexes):

@@ -392,6 +392,43 @@ class InternalState(object):
             "DnaA_box"
         )
 
+        # adding plasmid related unique molecules
+        # full plasmid
+        full_plasmid_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        full_plasmid_mass[sim_data.submass_name_to_index["DNA"]] = (
+            sim_data.getter.get_mass(sim_data.molecule_ids.full_plasmid)
+        )
+        full_plasmid_attributes = {
+            "division_time": "f8",
+            "has_triggered_division": "?",
+            "domain_index": "i4",
+        }
+
+        self.unique_molecule.add_to_unique_state(
+            "full_plasmid", full_plasmid_attributes, full_plasmid_mass
+        )
+
+        # Full chromosomes are divided based on their domain index
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "full_plasmid"
+        )
+
+        # Plasmid domains
+        plasmid_domain_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        plasmid_domain_attributes = {
+            "domain_index": "i4",
+            "child_domains": ("i4", 2),
+        }
+
+        self.unique_molecule.add_to_unique_state(
+            "plasmid_domain", plasmid_domain_attributes, plasmid_domain_mass
+        )
+
+        # Chromosome domains are divided based on their domain index
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "plasmid_domain"
+        )
+
     def _build_compartments(self, raw_data, sim_data):
         _ = sim_data
         compartmentData = np.empty(

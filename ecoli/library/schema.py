@@ -101,6 +101,21 @@ UNIQUE_DIVIDERS = {
             "chromosome_domain": ("..", "chromosome_domain"),
         },
     },
+    # new for plasmid
+    "full_plasmids": {
+        "divider": "by_domain",
+        "topology": {
+            "full_plasmid": (),
+            "plasmid_domain": ("..", "plasmid_domain"),
+        },
+    },
+    "plasmid_domains": {
+        "divider": "by_domain",
+        "topology": {
+            "full_plasmid": ("..", "full_plasmid"),
+            "plasmid_domain": (),
+        },
+    },
 }
 """A mapping of unique molecules to the names of their divider functions ars they are registered 
 in the ``divider_registry`` in ``ecoli/__init__.py``
@@ -719,29 +734,59 @@ def divide_domains(state: dict[str, MetadataArray]) -> dict[str, np.ndarray]:
         List of two structured Numpy arrays, each containing the chromosome
         domain unique molecule state for a daughter cell.
     """
-    (domain_index_full_chroms,) = attrs(state["full_chromosome"], ["domain_index"])
-    domain_index_domains, child_domains = attrs(
-        state["chromosome_domain"], ["domain_index", "child_domains"]
-    )
+    # modified for both plasmids and chromosomes
+    if "full_chromosome" in state:
+        (domain_index_full_chroms,) = attrs(state["full_chromosome"], ["domain_index"])
+        domain_index_domains, child_domains = attrs(
+            state["chromosome_domain"], ["domain_index", "child_domains"]
+        )
 
-    # TODO: Random state/seed in store?
-    # d1_gets_first_chromosome = randomState.rand() < 0.5
-    # index = not d1_gets_first_chromosome
-    # d1_domain_index_full_chroms = domain_index_full_chroms[index::2]
-    # d2_domain_index_full_chroms = domain_index_full_chroms[not index::2]
+        # TODO: Random state/seed in store?
+        # d1_gets_first_chromosome = randomState.rand() < 0.5
+        # index = not d1_gets_first_chromosome
+        # d1_domain_index_full_chroms = domain_index_full_chroms[index::2]
+        # d2_domain_index_full_chroms = domain_index_full_chroms[not index::2]
 
-    d1_domain_index_full_chroms = domain_index_full_chroms[0::2]
-    d2_domain_index_full_chroms = domain_index_full_chroms[1::2]
-    d1_all_domain_indexes = get_descendent_domains(
-        d1_domain_index_full_chroms, domain_index_domains, child_domains, -1
-    )
-    d2_all_domain_indexes = get_descendent_domains(
-        d2_domain_index_full_chroms, domain_index_domains, child_domains, -1
-    )
+        d1_domain_index_full_chroms = domain_index_full_chroms[0::2]
+        d2_domain_index_full_chroms = domain_index_full_chroms[1::2]
+        d1_all_domain_indexes = get_descendent_domains(
+            d1_domain_index_full_chroms, domain_index_domains, child_domains, -1
+        )
+        d2_all_domain_indexes = get_descendent_domains(
+            d2_domain_index_full_chroms, domain_index_domains, child_domains, -1
+        )
 
-    # Check that the domains are being divided correctly
-    assert np.intersect1d(d1_all_domain_indexes, d2_all_domain_indexes).size == 0
+        # Check that the domains are being divided correctly
+        assert np.intersect1d(d1_all_domain_indexes, d2_all_domain_indexes).size == 0
 
+    # optional plasmid division
+    elif "full_plasmid" in state:
+        (domain_index_full_plasmid,) = attrs(state["full_plasmid"], ["domain_index"])
+        plasmid_domain_index_domains, plasmid_child_domains = attrs(
+            state["plasmid_domain"], ["domain_index", "child_domains"]
+        )
+        # for plasmids
+        d1_domain_index_full_plasmid = domain_index_full_plasmid[0::2]
+        d2_domain_index_full_plasmid = domain_index_full_plasmid[1::2]
+        d1_all_domain_indexes = get_descendent_domains(
+            d1_domain_index_full_plasmid,
+            plasmid_domain_index_domains,
+            plasmid_child_domains,
+            -1,
+        )
+        d2_all_domain_indexes = get_descendent_domains(
+            d2_domain_index_full_plasmid,
+            plasmid_domain_index_domains,
+            plasmid_child_domains,
+            -1,
+        )
+        assert np.intersect1d(d1_all_domain_indexes, d2_all_domain_indexes).size == 0
+
+    else:
+        raise ValueError(
+            f"divide_domains called with unexpected keys: {list(state.keys())}"
+        )
+    # Return in a unified format expected by divide_by_domain
     return {
         "d1_all_domain_indexes": d1_all_domain_indexes,
         "d2_all_domain_indexes": d2_all_domain_indexes,

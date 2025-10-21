@@ -48,8 +48,8 @@ TOPOLOGY = {
 topology_registry.register(NAME, TOPOLOGY)
 
 
-class ChromosomeReplication(PartitionedProcess):
-    """Chromosome Replication PartitionedProcess"""
+class PlasmidReplication(PartitionedProcess):
+    """Plasmid Replication PartitionedProcess"""
 
     name = NAME
     topology = TOPOLOGY
@@ -154,43 +154,46 @@ class ChromosomeReplication(PartitionedProcess):
         requests = {}
         # Get total count of existing oriC's
         n_oriC = states["oriCs"]["_entryState"].sum()
+        # n_oriC = 1
         # If there are no origins, return immediately
         if n_oriC == 0:
             return requests
 
         # Get current cell mass
-        cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        # cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
 
         # Get critical initiation mass for current simulation environment
-        current_media_id = states["environment"]["media_id"]
-        self.criticalInitiationMass = self.get_dna_critical_mass(
-            self.nutrientToDoublingTime[current_media_id]
-        )
+        # current_media_id = states["environment"]["media_id"]
+        # self.criticalInitiationMass = self.get_dna_critical_mass(
+        #     self.nutrientToDoublingTime[current_media_id]
+        # )
 
         # Calculate mass per origin of replication, and compare to critical
         # initiation mass. If the cell mass has reached this critical mass,
         # the process will initiate a round of chromosome replication for each
         # origin of replication.
-        massPerOrigin = cellMass / n_oriC
-        self.criticalMassPerOriC = massPerOrigin / self.criticalInitiationMass
+        # massPerOrigin = cellMass / n_oriC
+        # self.criticalMassPerOriC = massPerOrigin / self.criticalInitiationMass
 
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit
         # access to oriC and chromosome domain attributes
         requests["bulk"] = []
-        if self.criticalMassPerOriC >= 1.0:
-            # the two lines below are the two original code lines
-            requests["bulk"].append((self.replisome_trimers_idx, 6 * n_oriC))
-            requests["bulk"].append((self.replisome_monomers_idx, 2 * n_oriC))
+        # if self.criticalMassPerOriC >= 1.0:
+        # the two lines below are the two original code lines
+        requests["bulk"].append((self.replisome_trimers_idx, 3 * n_oriC))
+        requests["bulk"].append((self.replisome_monomers_idx, 1 * n_oriC))
 
         # If there are no active forks return
         n_active_replisomes = states["active_replisomes"]["_entryState"].sum()
+        # n_active_replisomes = 1
         if n_active_replisomes == 0:
             return requests
 
         # Get current locations of all replication forks
         (fork_coordinates,) = attrs(states["active_replisomes"], ["coordinates"])
-        sequence_length = np.abs(np.repeat(fork_coordinates, 2))
+        # fork_coordinates = np.array([2179, -2179], dtype=np.int64)
+        sequence_length = np.abs(fork_coordinates)
 
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,
@@ -529,19 +532,19 @@ class ChromosomeReplication(PartitionedProcess):
         return update
 
 
-def test_chromosome_replication():
+def test_plasmid_replication():
     from ecoli.library.sim_data import LoadSimData
 
-    sim_data_default = "../../out/plasmid/parca/kb/simData.cPickle"
+    sim_data_default = "../../out/plasmidwithsequence/parca/kb/simData.cPickle"
     load_sim_data = LoadSimData(sim_data_default)
 
-    replication_config = load_sim_data.get_chromosome_replication_config()
+    replication_config = load_sim_data.get_plasmid_replication_config()
 
     # the full initial state
     initial_state = load_sim_data.generate_initial_state()
 
     # test_config = {}
-    process = ChromosomeReplication(replication_config)
+    process = PlasmidReplication(replication_config)
     # assert process is not None
 
     # interval = 1
@@ -678,4 +681,4 @@ def test_chromosome_replication():
 
 
 if __name__ == "__main__":
-    test_chromosome_replication()
+    test_plasmid_replication()

@@ -608,6 +608,7 @@ class LoadSimData:
             "exchange_data": self.get_exchange_data_config,
             "media_update": self.get_media_update_config,
             "bulk-timeline": self.get_bulk_timeline_config,
+            "ecoli-plasmid-replication": self.get_plasmid_replication_config,  # newly added for plasmid
         }
 
         try:
@@ -672,6 +673,67 @@ class LoadSimData:
         }
 
         return chromosome_replication_config
+
+    # new config for plasmid replication
+    def get_plasmid_replication_config(self, time_step=1):
+        doubling_time = self.sim_data.condition_to_doubling_time[
+            self.sim_data.condition
+        ]
+
+        replisome_trimer_subunit_masses = np.vstack(
+            [
+                self.sim_data.getter.get_submass_array(x).asNumber(
+                    units.fg / units.count
+                )
+                for x in self.sim_data.molecule_groups.replisome_trimer_subunits
+            ]
+        )
+        replisome_monomer_subunit_masses = np.vstack(
+            [
+                self.sim_data.getter.get_submass_array(x).asNumber(
+                    units.fg / units.count
+                )
+                for x in self.sim_data.molecule_groups.replisome_monomer_subunits
+            ]
+        )
+        replisome_mass_array = 3 * replisome_trimer_subunit_masses.sum(
+            axis=0
+        ) + replisome_monomer_subunit_masses.sum(axis=0)
+
+        plasmid_replication_config = {
+            "time_step": time_step,
+            "doubling_time": doubling_time,
+            # keep elongation machinery
+            "replichore_lengths": self.sim_data.process.replication.plasmid_replichore_lengths,
+            "sequences": self.sim_data.process.replication.plasmid_replication_sequences,
+            "polymerized_dntp_weights": self.sim_data.process.replication.replication_monomer_weights,
+            "D_period": self.sim_data.process.replication.d_period.asNumber(units.s),
+            "replisome_protein_mass": replisome_mass_array.sum(),
+            "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
+            "make_elongation_rates": self.sim_data.process.replication.make_elongation_rates,
+            "mechanistic_replisome": self.mechanistic_replisome,
+            "replisome_trimers_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
+            "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
+            "dntps": self.sim_data.molecule_groups.dntps,
+            "ppi": [self.sim_data.molecule_ids.ppi],
+            # plasmid-specific initiation control
+            # "initial_copy_number": 1,
+            # "rnaI": 2.31e-24, # mols
+            # "rnaII": self.sim_data.process.plasmid.replication.rnaII_synthesis_rate,
+            # "hybridization_rate": self.sim_data.process.plasmid.replication.hybridization_rate,
+            # "rna_degradation_rate": self.sim_data.process.plasmid.replication.rna_degradation_rate,
+            # "r1": self.sim_data.process.plasmid.replication.r1,  # hybridization parameter
+            # "r2": self.sim_data.process.plasmid.replication.r2,  # degradation parameter
+            # "plasmid_id": self.sim_data.molecule_ids.plasmid,
+            # "rnaI_id": self.sim_data.molecule_ids.rnaI,
+            # "rnaII_id": self.sim_data.molecule_ids.rnaII,
+            # "rnaI_II_hybrid_id": self.sim_data.molecule_ids.rnaI_II_hybrid,
+            # random state
+            "seed": self._seedFromName("PlasmidReplication"),
+            "submass_indices": self.submass_indices,
+        }
+
+        return plasmid_replication_config
 
     def get_tf_config(self, time_step=1):
         tf_binding_config = {

@@ -360,7 +360,7 @@ class Replication(object):
         )
 
         # No need for two replichores, just one
-        self.replichore_lengths = np.array([self.plasmid_forward_sequence.size])
+        self.plasmid_replichore_lengths = np.array([self.plasmid_forward_sequence.size])
 
         # Replication matrix → only 2 rows instead of 4
         maxLen = np.int64(

@@ -2,11 +2,11 @@
 import os
 from reconstruction.spreadsheets import JsonWriter
 
-# Path to your flat dir
+# Path to flat dir
 FLAT_DIR = "/Users/rashmidissasekara/Documents/code/vEcoli/reconstruction/ecoli/flat"
 out_file = os.path.join(FLAT_DIR, "plasmid_dna_sites.tsv")
 
-# Define your rows
+# Define rows
 rows = [
     {
         "id": "P-ori",
@@ -25,4 +25,4 @@ with open(out_file, "w", encoding="utf-8") as f:
     writer.writeheader()
     writer.writerows(rows)
 
-print(f"Wrote plasmid_dna_sites.tsv at {out_file}")
+# print(f"Wrote plasmid_dna_sites.tsv at {out_file}")

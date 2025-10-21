@@ -377,6 +377,11 @@ class GetterFunctions(object):
             self._build_full_chromosome_mass(raw_data, sim_data)
         )
 
+        # new for plasmid
+        self._all_submass_arrays.update(
+            self._build_full_plasmid_mass(raw_data, sim_data)
+        )
+
         # These updates can be dependent on the masses calculated above
         self._all_submass_arrays.update(self._build_modified_rna_masses(raw_data))
         self._all_submass_arrays.update(self._build_protein_complex_masses(raw_data))
@@ -572,6 +577,47 @@ class GetterFunctions(object):
 
         return {
             sim_data.molecule_ids.full_chromosome[:-3]: self._build_submass_array(
+                mw, "DNA"
+            )
+        }
+
+    # new function to calculate plasmid mass
+    def _build_full_plasmid_mass(self, raw_data, sim_data):
+        """
+        Calculates the mass of the full plasmid from its sequence and the
+        weights of polymerized dNTPs.
+        """
+        # Get chromosome dNTP compositions
+        plasmid_seq = raw_data.plasmid_sequence
+        forward_strand_nt_counts = np.array(
+            [
+                plasmid_seq.count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+        reverse_strand_nt_counts = np.array(
+            [
+                plasmid_seq.reverse_complement().count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+
+        # Calculate molecular weight
+        polymerized_dntp_mws = np.array(
+            [
+                self._all_submass_arrays[met_id[:-3]].sum()
+                for met_id in sim_data.molecule_groups.polymerized_dntps
+            ]
+        )
+        mw = float(
+            np.dot(
+                forward_strand_nt_counts + reverse_strand_nt_counts,
+                polymerized_dntp_mws,
+            )
+        )
+
+        return {
+            sim_data.molecule_ids.full_plasmid[:-3]: self._build_submass_array(
                 mw, "DNA"
             )
         }
