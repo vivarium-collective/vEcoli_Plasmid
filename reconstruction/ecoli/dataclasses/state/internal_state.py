@@ -408,7 +408,7 @@ class InternalState(object):
             "full_plasmid", full_plasmid_attributes, full_plasmid_mass
         )
 
-        # Full chromosomes are divided based on their domain index
+        # Full plasmids are divided based on their domain index
         sim_data.molecule_groups.unique_molecules_domain_index_division.append(
             "full_plasmid"
         )
@@ -423,10 +423,41 @@ class InternalState(object):
         self.unique_molecule.add_to_unique_state(
             "plasmid_domain", plasmid_domain_attributes, plasmid_domain_mass
         )
-
-        # Chromosome domains are divided based on their domain index
+        # Plasmid domains are divided based on their domain index
         sim_data.molecule_groups.unique_molecules_domain_index_division.append(
             "plasmid_domain"
+        )
+
+        # plasmid oriVs
+        plasmidoriginMass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        plasmidoriginAttributes = {
+            "domain_index": "i4",
+        }
+
+        self.unique_molecule.add_to_unique_state(
+            "oriV", plasmidoriginAttributes, plasmidoriginMass
+        )
+
+        # oriC's are divided based on their domain index
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append("oriV")
+
+        # plasmid_active_replisomes
+        plasmid_replisome_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        plasmid_replisome_attributes = {
+            "domain_index": "i4",
+            "right_replichore": "?",
+            "coordinates": "i8",
+        }
+
+        self.unique_molecule.add_to_unique_state(
+            "plasmid_active_replisome",
+            plasmid_replisome_attributes,
+            plasmid_replisome_mass,
+        )
+
+        # Active replisomes are divided based on their domain index
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "plasmid_active_replisome"
         )
 
     def _build_compartments(self, raw_data, sim_data):

@@ -116,6 +116,20 @@ UNIQUE_DIVIDERS = {
             "plasmid_domain": (),
         },
     },
+    "oriVs": {
+        "divider": "by_domain",
+        "topology": {
+            "full_plasmid": ("..", "full_plasmid"),
+            "plasmid_domain": ("..", "plasmid_domain"),
+        },
+    },
+    "plasmid_active_replisomes": {
+        "divider": "by_domain",
+        "topology": {
+            "full_plasmid": ("..", "full_plasmid"),
+            "plasmid_domain": ("..", "plasmid_domain"),
+        },
+    },
 }
 """A mapping of unique molecules to the names of their divider functions ars they are registered 
 in the ``divider_registry`` in ``ecoli/__init__.py``

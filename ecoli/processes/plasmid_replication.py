@@ -37,10 +37,10 @@ from ecoli.processes.partition import PartitionedProcess
 NAME = "ecoli-plasmid-replication"
 TOPOLOGY = {
     "bulk": ("bulk",),
-    "active_replisomes": ("unique", "active_replisome"),
-    "oriCs": ("unique", "oriC"),
-    "chromosome_domains": ("unique", "chromosome_domain"),
-    "full_chromosomes": ("unique", "full_chromosome"),
+    "active_replisomes": ("unique", "plasmid_active_replisome"),
+    "oriVs": ("unique", "oriV"),
+    "plasmid_domains": ("unique", "plasmid_domain"),
+    "full_plasmids": ("unique", "full_plasmid"),
     "listeners": ("listeners",),
     "environment": ("environment",),
     "timestep": ("timestep",),
@@ -128,15 +128,15 @@ class PlasmidReplication(PartitionedProcess):
             "environment": {
                 "media_id": {"_default": "", "_updater": "set"},
             },
-            "active_replisomes": numpy_schema(
-                "active_replisomes", emit=self.parameters["emit_unique"]
+            "plasmid_active_replisomes": numpy_schema(
+                "plasmid_active_replisomes", emit=self.parameters["emit_unique"]
             ),
-            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
-            "chromosome_domains": numpy_schema(
-                "chromosome_domains", emit=self.parameters["emit_unique"]
+            "oriVs": numpy_schema("oriVs", emit=self.parameters["emit_unique"]),
+            "plasmid_domains": numpy_schema(
+                "plasmid_domains", emit=self.parameters["emit_unique"]
             ),
-            "full_chromosomes": numpy_schema(
-                "full_chromosomes", emit=self.parameters["emit_unique"]
+            "full_plasmids": numpy_schema(
+                "full_plasmids", emit=self.parameters["emit_unique"]
             ),
             "timestep": {"_default": self.parameters["time_step"]},
         }
@@ -152,11 +152,11 @@ class PlasmidReplication(PartitionedProcess):
             )
             self.dntps_idx = bulk_name_to_idx(self.dntps, states["bulk"]["id"])
         requests = {}
-        # Get total count of existing oriC's
-        n_oriC = states["oriCs"]["_entryState"].sum()
+        # Get total count of existing oriV's
+        n_oriV = states["oriVs"]["_entryState"].sum()
         # n_oriC = 1
         # If there are no origins, return immediately
-        if n_oriC == 0:
+        if n_oriV == 0:
             return requests
 
         # Get current cell mass
@@ -181,19 +181,21 @@ class PlasmidReplication(PartitionedProcess):
         requests["bulk"] = []
         # if self.criticalMassPerOriC >= 1.0:
         # the two lines below are the two original code lines
-        requests["bulk"].append((self.replisome_trimers_idx, 3 * n_oriC))
-        requests["bulk"].append((self.replisome_monomers_idx, 1 * n_oriC))
+        requests["bulk"].append((self.replisome_trimers_idx, 3 * n_oriV))
+        requests["bulk"].append((self.replisome_monomers_idx, 1 * n_oriV))
 
         # If there are no active forks return
-        n_active_replisomes = states["active_replisomes"]["_entryState"].sum()
+        n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
         # n_active_replisomes = 1
         if n_active_replisomes == 0:
             return requests
 
         # Get current locations of all replication forks
-        (fork_coordinates,) = attrs(states["active_replisomes"], ["coordinates"])
+        (fork_coordinates,) = attrs(
+            states["plasmid_active_replisomes"], ["coordinates"]
+        )
         # fork_coordinates = np.array([2179, -2179], dtype=np.int64)
-        sequence_length = np.abs(fork_coordinates)
+        sequence_length = np.abs(np.repeat(fork_coordinates, 2))
 
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,
@@ -201,10 +203,10 @@ class PlasmidReplication(PartitionedProcess):
             self.basal_elongation_rate,
             states["timestep"],
         )
-
+        # changes made here for plasmid
         sequences = buildSequences(
             self.sequences,
-            np.tile(np.arange(4), n_active_replisomes // 2),
+            np.tile(np.arange(2), n_active_replisomes),
             sequence_length,
             self.elongation_rates,
         )
@@ -235,95 +237,101 @@ class PlasmidReplication(PartitionedProcess):
         # Initialize the update dictionary
         update = {
             "bulk": [],
-            "active_replisomes": {},
-            "oriCs": {},
-            "chromosome_domains": {},
-            "full_chromosomes": {},
+            "plasmid_active_replisomes": {},
+            "oriVs": {},
+            "plasmid_domains": {},
+            "full_plasmids": {},
             "listeners": {"replication_data": {}},
         }
 
         # Module 1: Replication initiation
         # Get number of existing replisomes and oriCs
-        n_active_replisomes = states["active_replisomes"]["_entryState"].sum()
-        n_oriC = states["oriCs"]["_entryState"].sum()
+        n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
+        n_oriV = states["oriVs"]["_entryState"].sum()
 
         # If there are no origins, return immediately
-        if n_oriC == 0:
+        if n_oriV == 0:
             return update
 
         # Get attributes of existing chromosome domains
         domain_index_existing_domain, child_domains = attrs(
-            states["chromosome_domains"], ["domain_index", "child_domains"]
+            states["plasmid_domains"], ["domain_index", "child_domains"]
         )
 
         initiate_replication = False
-        if self.criticalMassPerOriC >= 1.0:
-            # Get number of available replisome subunits
-            n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
-            n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
-            # Initiate replication only when
-            # 1) The cell has reached the critical mass per oriC
-            # 2) If mechanistic replisome option is on, there are enough
-            # replisome subunits to assemble two replisomes per existing OriC.
-            # Note that we assume asynchronous initiation does not happen.
-            initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 6 * n_oriC)
-                and np.all(n_replisome_monomers == 2 * n_oriC)
-            )
+        # if self.criticalMassPerOriC >= 1.0:
+        # Get number of available replisome subunits
+        n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
+        n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
+        # Initiate replication only when
+        # 1) The cell has reached the critical mass per oriC
+        # 2) If mechanistic replisome option is on, there are enough
+        # replisome subunits to assemble two replisomes per existing OriC.
+        # Note that we assume asynchronous initiation does not happen.
+        initiate_replication = not self.mechanistic_replisome or (
+            np.all(n_replisome_trimers == 3 * n_oriV)
+            and np.all(n_replisome_monomers == 1 * n_oriV)
+        )
 
         # If all conditions are met, initiate a round of replication on every
         # origin of replication
         if initiate_replication:
             # Get attributes of existing oriCs and domains
-            (domain_index_existing_oric,) = attrs(states["oriCs"], ["domain_index"])
+            (domain_index_existing_oriv,) = attrs(states["oriVs"], ["domain_index"])
 
             # Get indexes of the domains that would be getting child domains
             # (domains that contain an origin)
             new_parent_domains = np.where(
-                np.in1d(domain_index_existing_domain, domain_index_existing_oric)
+                np.in1d(domain_index_existing_domain, domain_index_existing_oriv)
             )[0]
 
-            # Calculate counts of new replisomes and domains to add
-            n_new_replisome = 2 * n_oriC
-            n_new_domain = 2 * n_oriC
+            # Calculate counts of new replisomes and domains to add. changes made here for plasmid
+            n_new_replisome = n_oriV
+            n_new_domain = n_oriV
 
             # Calculate the domain indexes of new domains and oriC's
             max_domain_index = domain_index_existing_domain.max()
             domain_index_new = np.arange(
-                max_domain_index + 1, max_domain_index + 2 * n_oriC + 1, dtype=np.int32
+                max_domain_index + 1, max_domain_index + n_oriV + 1, dtype=np.int32
             )
 
             # Add new oriC's, and reset attributes of existing oriC's
             # All oriC's must be assigned new domain indexes
-            update["oriCs"]["set"] = {"domain_index": domain_index_new[:n_oriC]}
-            update["oriCs"]["add"] = {
-                "domain_index": domain_index_new[n_oriC:],
+            update["oriVs"]["set"] = {"domain_index": domain_index_new[:n_oriV]}
+            update["oriVs"]["add"] = {
+                "domain_index": domain_index_new[n_oriV:],
             }
 
-            # Add and set attributes of newly created replisomes.
-            # New replisomes inherit the domain indexes of the oriC's they
-            # were initiated from. Two replisomes are formed per oriC, one on
-            # the right replichore, and one on the left.
+            # Add and set attributes of newly created plasmid replisomes.
+            # New replisomes inherit the domain indexes of the oriV's they
+            # were initiated from. Only one replisome is formed per oriV (unidirectional replication).
+
             coordinates_replisome = np.zeros(n_new_replisome, dtype=np.int64)
-            right_replichore = np.tile(np.array([True, False], dtype=np.bool_), n_oriC)
-            right_replichore = right_replichore.tolist()
-            domain_index_new_replisome = np.repeat(domain_index_existing_oric, 2)
+
+            # For plasmids, replication is unidirectional, so no left/right replichore distinction.
+            right_replichore = np.full(n_new_replisome, False, dtype=bool)
+
+            # Each oriC spawns one replisome in its domain
+            domain_index_new_replisome = domain_index_existing_oriv.copy()
+
             massDiff_protein_new_replisome = np.full(
                 n_new_replisome,
                 self.replisome_protein_mass if self.mechanistic_replisome else 0.0,
             )
-            update["active_replisomes"]["add"] = {
+
+            update["plasmid_active_replisomes"]["add"] = {
                 "coordinates": coordinates_replisome,
                 "right_replichore": right_replichore,
                 "domain_index": domain_index_new_replisome,
                 "massDiff_protein": massDiff_protein_new_replisome,
             }
 
-            # Add and set attributes of new chromosome domains. All new domains
-            # should have have no children domains.
+            # Add and set attributes of new plasmid domains.
+            # Each new domain should have no children initially.
             new_child_domains = np.full(
                 (n_new_domain, 2), self.no_child_place_holder, dtype=np.int32
             )
+
             new_domains_update = {
                 "add": {
                     "domain_index": domain_index_new,
@@ -332,24 +340,28 @@ class PlasmidReplication(PartitionedProcess):
             }
 
             # Add new domains as children of existing domains
-            child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
+            # Each parent only gets one child domain (unidirectional replication)
+            child_domains[new_parent_domains, 0] = domain_index_new
+            # Leave the second column (child_domains[:, 1]) as placeholder
+
             existing_domains_update = {"set": {"child_domains": child_domains}}
-            update["chromosome_domains"].update(
+
+            update["plasmid_domains"].update(
                 {**new_domains_update, **existing_domains_update}
             )
 
             # Decrement counts of replisome subunits
             if self.mechanistic_replisome:
-                update["bulk"].append((self.replisome_trimers_idx, -6 * n_oriC))
-                update["bulk"].append((self.replisome_monomers_idx, -2 * n_oriC))
+                update["bulk"].append((self.replisome_trimers_idx, -3 * n_oriV))
+                update["bulk"].append((self.replisome_monomers_idx, -1 * n_oriV))
 
         # Write data from this module to a listener
-        update["listeners"]["replication_data"]["critical_mass_per_oriC"] = (
-            self.criticalMassPerOriC.asNumber()
-        )
-        update["listeners"]["replication_data"]["critical_initiation_mass"] = (
-            self.criticalInitiationMass.asNumber(units.fg)
-        )
+        # update["listeners"]["replication_data"]["critical_mass_per_oriC"] = (
+        #     self.criticalMassPerOriC.asNumber()
+        # )
+        # update["listeners"]["replication_data"]["critical_initiation_mass"] = (
+        #     self.criticalInitiationMass.asNumber(units.fg)
+        # )
 
         # Module 2: replication elongation
         # If no active replisomes are present, return immediately
@@ -367,13 +379,13 @@ class PlasmidReplication(PartitionedProcess):
             right_replichore,
             coordinates_replisome,
         ) = attrs(
-            states["active_replisomes"],
+            states["plasmid_active_replisomes"],
             ["domain_index", "right_replichore", "coordinates"],
         )
 
         # Build sequences to polymerize
         sequence_length = np.abs(np.repeat(coordinates_replisome, 2))
-        sequence_indexes = np.tile(np.arange(4), n_active_replisomes // 2)
+        sequence_indexes = np.tile(np.arange(2), n_active_replisomes)
 
         sequences = buildSequences(
             self.sequences, sequence_indexes, sequence_length, self.elongation_rates
@@ -414,8 +426,10 @@ class PlasmidReplication(PartitionedProcess):
         updated_coordinates[~right_replichore] = -updated_coordinates[~right_replichore]
 
         # Update attributes and submasses of replisomes
-        (current_dna_mass,) = attrs(states["active_replisomes"], ["massDiff_DNA"])
-        update["active_replisomes"].update(
+        (current_dna_mass,) = attrs(
+            states["plasmid_active_replisomes"], ["massDiff_DNA"]
+        )
+        update["plasmid_active_replisomes"].update(
             {
                 "set": {
                     "coordinates": updated_coordinates,
@@ -431,10 +445,8 @@ class PlasmidReplication(PartitionedProcess):
         # Module 3: replication termination
         # Determine if any forks have reached the end of their sequences. If
         # so, delete the replisomes and domains that were terminated.
-        terminal_lengths = self.replichore_lengths[
-            np.logical_not(right_replichore).astype(np.int64)
-        ]
-        terminated_replisomes = np.abs(updated_coordinates) == terminal_lengths
+        # For plasmids, termination occurs when replisome reaches the end of the sequence
+        terminated_replisomes = updated_coordinates >= self.replichore_lengths
 
         # If any forks were terminated,
         if terminated_replisomes.sum() > 0:
@@ -447,19 +459,19 @@ class PlasmidReplication(PartitionedProcess):
             (
                 domain_index_domains,
                 child_domains,
-            ) = attrs(states["chromosome_domains"], ["domain_index", "child_domains"])
-            (domain_index_full_chroms,) = attrs(
-                states["full_chromosomes"], ["domain_index"]
+            ) = attrs(states["plasmid_domains"], ["domain_index", "child_domains"])
+            (domain_index_full_plasmid,) = attrs(
+                states["full_plasmids"], ["domain_index"]
             )
 
             # Initialize array of replisomes that should be deleted
             replisomes_to_delete = np.zeros_like(domain_index_replisome, dtype=np.bool_)
 
             # Count number of new full chromosomes that should be created
-            n_new_chromosomes = 0
+            n_new_plasmids = 0
 
             # Initialize array for domain indexes of new full chromosomes
-            domain_index_new_full_chroms = []
+            domain_index_new_full_plasmid = []
 
             for terminated_domain_index in terminated_domains:
                 # Get all terminated replisomes in the terminated domain
@@ -468,9 +480,8 @@ class PlasmidReplication(PartitionedProcess):
                     terminated_replisomes,
                 )
 
-                # If both replisomes in the domain have terminated, we are
-                # ready to split the chromosome and update the attributes.
-                if terminated_domain_matching_replisomes.sum() == 2:
+                # changes made here because only a single replication fork is present
+                if terminated_domain_matching_replisomes.any():
                     # Tag replisomes and domains with the given domain index
                     # for deletion
                     replisomes_to_delete = np.logical_or(
@@ -486,25 +497,29 @@ class PlasmidReplication(PartitionedProcess):
 
                     # Modify domain index of one existing full chromosome to
                     # index of first child domain
-                    domain_index_full_chroms = domain_index_full_chroms.copy()
-                    domain_index_full_chroms[
-                        np.where(domain_index_full_chroms == terminated_domain_index)[0]
+                    domain_index_full_plasmid = domain_index_full_plasmid.copy()
+                    domain_index_full_plasmid[
+                        np.where(domain_index_full_plasmid == terminated_domain_index)[
+                            0
+                        ]
                     ] = child_domains_this_domain[0]
 
                     # Increment count of new full chromosome
-                    n_new_chromosomes += 1
+                    n_new_plasmids += 1
 
                     # Append chromosome index of new full chromosome
-                    domain_index_new_full_chroms.append(child_domains_this_domain[1])
+                    domain_index_new_full_plasmid.append(child_domains_this_domain[1])
 
             # Delete terminated replisomes
-            update["active_replisomes"]["delete"] = np.where(replisomes_to_delete)[0]
+            update["plasmid_active_replisomes"]["delete"] = np.where(
+                replisomes_to_delete
+            )[0]
 
             # Generate new full chromosome molecules
-            if n_new_chromosomes > 0:
-                chromosome_add_update = {
+            if n_new_plasmids > 0:
+                plasmid_add_update = {
                     "add": {
-                        "domain_index": domain_index_new_full_chroms,
+                        "domain_index": domain_index_new_full_plasmid,
                         "division_time": states["global_time"] + self.D_period,
                         "has_triggered_division": False,
                     }
@@ -512,12 +527,12 @@ class PlasmidReplication(PartitionedProcess):
 
                 # Reset domain index of existing chromosomes that have finished
                 # replication
-                chromosome_existing_update = {
-                    "set": {"domain_index": domain_index_full_chroms}
+                plasmid_existing_update = {
+                    "set": {"domain_index": domain_index_full_plasmid}
                 }
 
-                update["full_chromosomes"].update(
-                    {**chromosome_add_update, **chromosome_existing_update}
+                update["full_plasmids"].update(
+                    {**plasmid_add_update, **plasmid_existing_update}
                 )
 
             # Increment counts of replisome subunits
@@ -551,15 +566,16 @@ def test_plasmid_replication():
     input_state1 = {
         "bulk": initial_state["bulk"],
         "environment": initial_state["environment"],
-        "active_replisomes": initial_state["unique"]["active_replisome"],
-        "oriCs": initial_state["unique"]["oriC"],
-        "chromosome_domains": initial_state["unique"]["chromosome_domain"],
-        "full_chromosomes": initial_state["unique"]["full_chromosome"],
+        "plasmid_active_replisomes": initial_state["unique"][
+            "plasmid_active_replisome"
+        ],
+        "oriVs": initial_state["unique"]["oriV"],
+        "plasmid_domains": initial_state["unique"]["plasmid_domain"],
+        "full_plasmids": initial_state["unique"]["full_plasmid"],
         "listeners": {"mass": {"cell_mass": 2000.0}},  # arbitrary fg to start,
         "timestep": replication_config["time_step"],
     }
 
-    # many plasmids
     requests_history = []
     bulk_ids = input_state1["bulk"]["id"]
 
@@ -581,13 +597,9 @@ def test_plasmid_replication():
             bulk_dict[mol_name] = int(cnt)
 
     # Append to history
-    # requests_history.append({"n_oriC": n_oriC, **bulk_dict})
-
-    # call evolve_state
-    # update = process.evolve_state(input_state1["timestep"], input_state1)
+    requests_history.append({**bulk_dict})
 
     # Convert to dataframe
-
     df_requests = pd.DataFrame(requests_history)
 
     # plotting
@@ -595,49 +607,22 @@ def test_plasmid_replication():
     import seaborn as sns
 
     # Melt the dataframe to long format for easier plotting
-    df_long = df_requests.melt(
-        id_vars="n_oriC", var_name="Molecule", value_name="Count"
-    )
+    df_long = df_requests.melt(var_name="Molecule", value_name="Count")
 
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=df_long, x="n_oriC", y="Count", hue="Molecule")
+    sns.barplot(data=df_long, x="Molecule", y="Count", palette="viridis")
 
-    plt.xlabel("Number of oriCs")
-    plt.ylabel("Requested Molecules")
-    plt.title("Bulk Molecule Requests vs Number of Origins")
-    plt.legend(title="Molecule", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.xlabel("Bulk Molecule")
+    plt.ylabel("Requested Count")
+    plt.title("Bulk Molecule Requests for Plasmid at current time step")
+    plt.xticks(rotation=60, ha="right")
     plt.tight_layout()
-    plt.savefig("bulk_requests_plot.png", dpi=300)
+    plt.savefig("plasmid_bulk_requests_plot.png", dpi=300)
 
-    df_replisome = df_requests.iloc[:, :-4].copy()
+    # call evolve_state
+    update = process.evolve_state(input_state1["timestep"], input_state1)
+    print(update.keys())
 
-    df_long_replisome = df_replisome.melt(
-        id_vars="n_oriC", var_name="Molecule", value_name="Count"
-    )
-
-    # Plot
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df_long_replisome, x="n_oriC", y="Count", hue="Molecule")
-
-    plt.xlabel("Number of oriCs")
-    plt.ylabel("Requested Molecules")
-    plt.title("Bulk Molecule Requests vs Number of Origins (without dNTPs)")
-    plt.legend(title="Molecule", bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-    plt.savefig("bulk_requests_no_dNTPs.png", dpi=300)
-
-    # testing single increased oric scenario
-    # input_state2 = {
-    #     "bulk": initial_state["bulk"],
-    #     "environment": initial_state["environment"],
-    #     "active_replisomes": initial_state["unique"]["active_replisome"],
-    #     "oriCs": generate_oriCs(3),
-    #     "chromosome_domains": initial_state["unique"]["chromosome_domain"],
-    #     "full_chromosomes": initial_state["unique"]["full_chromosome"],
-    #     "listeners": {"mass": {"cell_mass": 0}},  # placeholder,
-    #     "timestep": replication_config["time_step"]
-    #
-    # }
     # input_state2["listeners"]["mass"]["cell_mass"] = replication_config["criticalInitiationMass"].asNumber() * input_state2["oriCs"]["_entryState"].sum()
     #
     # input_state = input_state2

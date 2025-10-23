@@ -529,43 +529,43 @@ class ChromosomeReplication(PartitionedProcess):
         return update
 
 
-def generate_oriCs(n_oriCs, start_unique_id=3458764513820540928):
-    """
-    Generate a list of oriC tuples for input_state.
-
-    Args:
-        n_oriCs (int): Number of oriCs to generate.
-        start_unique_id (int): Starting value for the unique identifier.
-
-    Returns:
-        list of tuples: Each tuple represents an oriC.
-    """
-    oriC_dtype = [
-        ("domain_index", "<i4"),
-        ("massDiff_rRNA", "<f8"),
-        ("massDiff_tRNA", "<f8"),
-        ("massDiff_mRNA", "<f8"),
-        ("massDiff_miscRNA", "<f8"),
-        ("massDiff_nonspecific_RNA", "<f8"),
-        ("massDiff_protein", "<f8"),
-        ("massDiff_metabolite", "<f8"),
-        ("massDiff_water", "<f8"),
-        ("massDiff_DNA", "<f8"),
-        ("_entryState", "|i1"),
-        ("unique_index", "<i8"),
-    ]
-
-    oriCs_array = np.zeros(n_oriCs, dtype=oriC_dtype)
-    oriCs_array["domain_index"] = np.arange(1, n_oriCs + 1)
-    oriCs_array["_entryState"] = 1
-    oriCs_array["unique_index"] = np.arange(start_unique_id, start_unique_id + n_oriCs)
-    return oriCs_array
+# def generate_oriCs(n_oriCs, start_unique_id=3458764513820540928):
+#     """
+#     Generate a list of oriC tuples for input_state.
+#
+#     Args:
+#         n_oriCs (int): Number of oriCs to generate.
+#         start_unique_id (int): Starting value for the unique identifier.
+#
+#     Returns:
+#         list of tuples: Each tuple represents an oriC.
+#     """
+#     oriC_dtype = [
+#         ("domain_index", "<i4"),
+#         ("massDiff_rRNA", "<f8"),
+#         ("massDiff_tRNA", "<f8"),
+#         ("massDiff_mRNA", "<f8"),
+#         ("massDiff_miscRNA", "<f8"),
+#         ("massDiff_nonspecific_RNA", "<f8"),
+#         ("massDiff_protein", "<f8"),
+#         ("massDiff_metabolite", "<f8"),
+#         ("massDiff_water", "<f8"),
+#         ("massDiff_DNA", "<f8"),
+#         ("_entryState", "|i1"),
+#         ("unique_index", "<i8"),
+#     ]
+#
+#     oriCs_array = np.zeros(n_oriCs, dtype=oriC_dtype)
+#     oriCs_array["domain_index"] = np.arange(1, n_oriCs + 1)
+#     oriCs_array["_entryState"] = 1
+#     oriCs_array["unique_index"] = np.arange(start_unique_id, start_unique_id + n_oriCs)
+#     return oriCs_array
 
 
 def test_chromosome_replication():
     from ecoli.library.sim_data import LoadSimData
 
-    sim_data_default = "../../out/plasmid/parca/kb/simData.cPickle"
+    sim_data_default = "../../out/plasmidwithsequence/parca/kb/simData.cPickle"
     load_sim_data = LoadSimData(sim_data_default)
 
     replication_config = load_sim_data.get_chromosome_replication_config()
@@ -598,44 +598,44 @@ def test_chromosome_replication():
     requests_history = []
     bulk_ids = input_state1["bulk"]["id"]
 
-    for n_oriC in range(2, 21):
-        # Generate input state
-        input_state = {
-            "bulk": initial_state["bulk"],
-            "environment": initial_state["environment"],
-            "active_replisomes": initial_state["unique"]["active_replisome"],
-            "oriCs": generate_oriCs(n_oriC),
-            "chromosome_domains": initial_state["unique"]["chromosome_domain"],
-            "full_chromosomes": initial_state["unique"]["full_chromosome"],
-            "listeners": {
-                "mass": {
-                    "cell_mass": replication_config["criticalInitiationMass"].asNumber()
-                    * n_oriC
-                }
-            },
-            "timestep": replication_config["time_step"],
-        }
+    # for n_oriC in range(2, 21):
+    #     # Generate input state
+    #     input_state = {
+    #         "bulk": initial_state["bulk"],
+    #         "environment": initial_state["environment"],
+    #         "active_replisomes": initial_state["unique"]["active_replisome"],
+    #         "oriCs": generate_oriCs(n_oriC),
+    #         "chromosome_domains": initial_state["unique"]["chromosome_domain"],
+    #         "full_chromosomes": initial_state["unique"]["full_chromosome"],
+    #         "listeners": {
+    #             "mass": {
+    #                 "cell_mass": replication_config["criticalInitiationMass"].asNumber()
+    #                 * n_oriC
+    #             }
+    #         },
+    #         "timestep": replication_config["time_step"],
+    #     }
 
-        # Call calculate_request
-        requests = process.calculate_request(input_state["timestep"], input_state)
+    # Call calculate_request
+    requests = process.calculate_request(input_state1["timestep"], input_state1)
 
-        # Convert requests["bulk"] into a flat dictionary
-        bulk_dict = {}
-        for ids, count in requests.get("bulk", []):
-            ids = np.atleast_1d(ids)
-            if np.isscalar(count):
-                count = np.full_like(ids, count, dtype=int)
-            else:
-                count = np.array(count, dtype=int)
-            for idx, cnt in zip(ids, count):
-                mol_name = bulk_ids[idx]  # map from id to molecule name
-                bulk_dict[mol_name] = int(cnt)
+    # Convert requests["bulk"] into a flat dictionary
+    bulk_dict = {}
+    for ids, count in requests.get("bulk", []):
+        ids = np.atleast_1d(ids)
+        if np.isscalar(count):
+            count = np.full_like(ids, count, dtype=int)
+        else:
+            count = np.array(count, dtype=int)
+        for idx, cnt in zip(ids, count):
+            mol_name = bulk_ids[idx]  # map from id to molecule name
+            bulk_dict[mol_name] = int(cnt)
 
-        # Append to history
-        requests_history.append({"n_oriC": n_oriC, **bulk_dict})
+    # Append to history
+    requests_history.append({**bulk_dict})
 
-        # call evolve_state
-        # update = process.evolve_state(input_state["timestep"], input_state)
+    # call evolve_state
+    # update = process.evolve_state(input_state["timestep"], input_state)
 
     # Convert to dataframe
 
@@ -646,36 +646,17 @@ def test_chromosome_replication():
     import seaborn as sns
 
     # Melt the dataframe to long format for easier plotting
-    df_long = df_requests.melt(
-        id_vars="n_oriC", var_name="Molecule", value_name="Count"
-    )
+    df_long = df_requests.melt(var_name="Molecule", value_name="Count")
 
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=df_long, x="n_oriC", y="Count", hue="Molecule")
+    sns.barplot(data=df_long, x="Molecule", y="Count", palette="viridis")
 
-    plt.xlabel("Number of oriCs")
-    plt.ylabel("Requested Molecules")
-    plt.title("Bulk Molecule Requests vs Number of Origins")
-    plt.legend(title="Molecule", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.xlabel("Bulk Molecule")
+    plt.ylabel("Requested Count")
+    plt.title("Bulk Molecule Requests for Chromosome at current time step")
+    plt.xticks(rotation=60, ha="right")
     plt.tight_layout()
-    plt.savefig("bulk_requests_plot.png", dpi=300)
-
-    df_replisome = df_requests.iloc[:, :-4].copy()
-
-    df_long_replisome = df_replisome.melt(
-        id_vars="n_oriC", var_name="Molecule", value_name="Count"
-    )
-
-    # Plot
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df_long_replisome, x="n_oriC", y="Count", hue="Molecule")
-
-    plt.xlabel("Number of oriCs")
-    plt.ylabel("Requested Molecules")
-    plt.title("Bulk Molecule Requests vs Number of Origins (without dNTPs)")
-    plt.legend(title="Molecule", bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-    plt.savefig("bulk_requests_no_dNTPs.png", dpi=300)
+    plt.savefig("chromosome_bulk_requests_plot.png", dpi=300)
 
     # testing single increased oric scenario
     # input_state2 = {

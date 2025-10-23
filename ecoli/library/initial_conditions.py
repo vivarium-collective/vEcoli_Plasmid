@@ -576,7 +576,7 @@ def initialize_replication(
     )
 
     # Generate arrays for initial replication conditions for the plasmid
-    plasmid_oric_state, plasmid_replisome_state, plasmid_domain_state = (
+    plasmid_oriV_state, plasmid_replisome_state, plasmid_domain_state = (
         determine_plasmid_state(
             plasmid_replichore_length,
             sim_data.process.replication.no_child_place_holder,
@@ -588,7 +588,7 @@ def initialize_replication(
     n_domain = domain_state["domain_index"].size
 
     # for plasmids
-    plasmid_n_oric = plasmid_oric_state["domain_index"].size
+    plasmid_n_oriV = plasmid_oriV_state["domain_index"].size
     plasmid_n_replisome = plasmid_replisome_state["domain_index"].size
     plasmid_n_domain = plasmid_domain_state["domain_index"].size
 
@@ -597,12 +597,12 @@ def initialize_replication(
         "oriC", n_oric, sim_data, unique_id_rng, domain_index=oric_state["domain_index"]
     )
     # plasmids - Adding new unique molecules with proposed attributes
-    unique_molecules["plasmid_ori"] = create_new_unique_molecules(
-        "oriC",
-        plasmid_n_oric,
+    unique_molecules["oriV"] = create_new_unique_molecules(
+        "oriV",
+        plasmid_n_oriV,
         sim_data,
         unique_id_rng,
-        domain_index=plasmid_oric_state["domain_index"],
+        domain_index=plasmid_oriV_state["domain_index"],
     )
 
     # Add chromosome domain molecules with the proposed attributes
@@ -617,18 +617,16 @@ def initialize_replication(
 
     # plasmids - Adding plasmid domain molecules with proposed attributes
     unique_molecules["plasmid_domain"] = create_new_unique_molecules(
-        "chromosome_domain",
+        "plasmid_domain",
         plasmid_n_domain,
         sim_data,
         unique_id_rng,
         domain_index=plasmid_domain_state["domain_index"],
         child_domains=plasmid_domain_state["child_domains"],
     )
-    # unique_molecules["plasmid_domain"] = create_new_unique_molecules(
-    #     "plasmid_domain", plasmid_n_domain, sim_data, unique_id_rng
-    # )
 
-    if n_replisome != 0:
+    # some modifications done to include plasmids as well
+    if n_replisome != 0 or plasmid_n_replisome != 0:
         # Update mass of replisomes if the mechanistic replisome option is set
         if mechanistic_replisome:
             replisome_trimer_subunit_masses = np.vstack(
@@ -654,30 +652,63 @@ def initialize_replication(
         else:
             replisome_protein_mass = 0.0
 
-        # Update mass to account for DNA strands that have already been
-        # elongated.
-        sequences = sim_data.process.replication.replication_sequences
-        fork_coordinates = replisome_state["coordinates"]
-        sequence_elongations = np.abs(np.repeat(fork_coordinates, 2))
+        if n_replisome != 0:
+            # Update mass to account for DNA strands that have already been
+            # elongated.
+            sequences = sim_data.process.replication.replication_sequences
+            fork_coordinates = replisome_state["coordinates"]
+            sequence_elongations = np.abs(np.repeat(fork_coordinates, 2))
 
-        mass_increase_dna = computeMassIncrease(
-            np.tile(sequences, (n_replisome // 2, 1)),
-            sequence_elongations,
-            sim_data.process.replication.replication_monomer_weights.asNumber(units.fg),
-        )
+            mass_increase_dna = computeMassIncrease(
+                np.tile(sequences, (n_replisome // 2, 1)),
+                sequence_elongations,
+                sim_data.process.replication.replication_monomer_weights.asNumber(
+                    units.fg
+                ),
+            )
 
-        # Add active replisomes as unique molecules and set attributes
-        unique_molecules["active_replisome"] = create_new_unique_molecules(
-            "active_replisome",
-            n_replisome,
-            sim_data,
-            unique_id_rng,
-            domain_index=replisome_state["domain_index"],
-            coordinates=replisome_state["coordinates"],
-            right_replichore=replisome_state["right_replichore"],
-            massDiff_DNA=mass_increase_dna[0::2] + mass_increase_dna[1::2],
-            massDiff_protein=replisome_protein_mass,
-        )
+            # Add active replisomes as unique molecules and set attributes
+            unique_molecules["active_replisome"] = create_new_unique_molecules(
+                "active_replisome",
+                n_replisome,
+                sim_data,
+                unique_id_rng,
+                domain_index=replisome_state["domain_index"],
+                coordinates=replisome_state["coordinates"],
+                right_replichore=replisome_state["right_replichore"],
+                massDiff_DNA=mass_increase_dna[0::2] + mass_increase_dna[1::2],
+                massDiff_protein=replisome_protein_mass,
+            )
+
+        if plasmid_n_replisome != 0:
+            plasmid_sequences = (
+                sim_data.process.replication.plasmid_replication_sequences
+            )
+            plasmid_fork_coordinates = plasmid_replisome_state["coordinates"]
+            plasmid_sequence_elongations = np.abs(
+                np.repeat(plasmid_fork_coordinates, 2)
+            )
+
+            plasmid_mass_increase_dna = computeMassIncrease(
+                np.tile(plasmid_sequences, (plasmid_n_replisome, 1)),
+                plasmid_sequence_elongations,
+                sim_data.process.replication.replication_monomer_weights.asNumber(
+                    units.fg
+                ),
+            )
+
+            unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
+                "plasmid_active_replisome",
+                plasmid_n_replisome,
+                sim_data,
+                unique_id_rng,
+                domain_index=plasmid_replisome_state["domain_index"],
+                coordinates=plasmid_replisome_state["coordinates"],
+                right_replichore=plasmid_replisome_state["right_replichore"],
+                massDiff_DNA=plasmid_mass_increase_dna[0::2]
+                + plasmid_mass_increase_dna[1::2],
+                massDiff_protein=replisome_protein_mass,
+            )
 
         if mechanistic_replisome:
             # Remove replisome subunits from bulk molecules
@@ -692,7 +723,7 @@ def initialize_replication(
 
         # Creating a similar empty structured array for plasmid active replisomes as well.
         unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
-            "active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
+            "plasmid_active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
         )
 
     # Get coordinates of all genes, promoters and DnaA boxes
@@ -1949,12 +1980,12 @@ def determine_plasmid_state(
     child_domains = np.full((n_domains, 2), place_holder, dtype=np.int32)
 
     # Domain indices
-    domain_index_orip = np.arange(n_domains, dtype=np.int32)  # oriP domain index
+    domain_index_oriV = np.arange(n_domains, dtype=np.int32)  # oriV domain index
     domain_index_domains = np.arange(
         n_domains, dtype=np.int32
     )  # plasmid domain indices
 
-    orip_state = {"domain_index": domain_index_orip}
+    oriV_state = {"domain_index": domain_index_oriV}
     plasmid_replisome_state = {
         "coordinates": coordinates,
         "right_replichore": right_replichore_replisome,
@@ -1965,7 +1996,7 @@ def determine_plasmid_state(
         "child_domains": child_domains,
     }
 
-    return orip_state, plasmid_replisome_state, plasmid_domain_state
+    return oriV_state, plasmid_replisome_state, plasmid_domain_state
 
 
 def rescale_initiation_probs(init_probs, TU_index, fixed_synth_probs, fixed_TU_indexes):
