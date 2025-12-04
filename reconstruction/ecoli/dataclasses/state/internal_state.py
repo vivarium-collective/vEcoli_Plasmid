@@ -427,7 +427,7 @@ class InternalState(object):
         sim_data.molecule_groups.unique_molecules_domain_index_division.append(
             "plasmid_domain"
         )
-
+        #
         # plasmid oriVs
         plasmidoriginMass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
         plasmidoriginAttributes = {

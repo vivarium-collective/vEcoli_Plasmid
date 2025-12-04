@@ -17,6 +17,9 @@ from ecoli.processes.metabolism import Metabolism
 from ecoli.processes.metabolism_redux import MetabolismRedux
 from ecoli.processes.metabolism_redux_classic import MetabolismReduxClassic
 from ecoli.processes.chromosome_replication import ChromosomeReplication
+
+# for plasmids
+from ecoli.processes.plasmid_replication import PlasmidReplication
 from ecoli.processes.stubs.exchange_stub import Exchange
 from ecoli.processes.listeners.mass_listener import (
     MassListener,
@@ -94,6 +97,8 @@ process_registry.register(Allocator.name, Allocator)
 process_registry.register(Shape.name, Shape)
 process_registry.register(ConcentrationsDeriver.name, ConcentrationsDeriver)
 process_registry.register(Aggregator.name, Aggregator)
+# for plasmids
+process_registry.register(PlasmidReplication.name, PlasmidReplication)
 
 # environment processes
 process_registry.register(Lysis.name, Lysis)

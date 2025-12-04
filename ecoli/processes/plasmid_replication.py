@@ -37,7 +37,7 @@ from ecoli.processes.partition import PartitionedProcess
 NAME = "ecoli-plasmid-replication"
 TOPOLOGY = {
     "bulk": ("bulk",),
-    "active_replisomes": ("unique", "plasmid_active_replisome"),
+    "plasmid_active_replisomes": ("unique", "plasmid_active_replisome"),
     "oriVs": ("unique", "oriV"),
     "plasmid_domains": ("unique", "plasmid_domain"),
     "full_plasmids": ("unique", "full_plasmid"),
@@ -181,8 +181,10 @@ class PlasmidReplication(PartitionedProcess):
         requests["bulk"] = []
         # if self.criticalMassPerOriC >= 1.0:
         # the two lines below are the two original code lines
-        requests["bulk"].append((self.replisome_trimers_idx, 3 * n_oriV))
-        requests["bulk"].append((self.replisome_monomers_idx, 1 * n_oriV))
+        # for debugging
+        if n_oriV < 4:
+            requests["bulk"].append((self.replisome_trimers_idx, 3 * n_oriV))
+            requests["bulk"].append((self.replisome_monomers_idx, 1 * n_oriV))
 
         # If there are no active forks return
         n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
@@ -260,18 +262,20 @@ class PlasmidReplication(PartitionedProcess):
 
         initiate_replication = False
         # if self.criticalMassPerOriC >= 1.0:
-        # Get number of available replisome subunits
-        n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
-        n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
-        # Initiate replication only when
-        # 1) The cell has reached the critical mass per oriC
-        # 2) If mechanistic replisome option is on, there are enough
-        # replisome subunits to assemble two replisomes per existing OriC.
-        # Note that we assume asynchronous initiation does not happen.
-        initiate_replication = not self.mechanistic_replisome or (
-            np.all(n_replisome_trimers == 3 * n_oriV)
-            and np.all(n_replisome_monomers == 1 * n_oriV)
-        )
+        # for debugging
+        if n_oriV < 4:
+            # Get number of available replisome subunits
+            n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
+            n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
+            # Initiate replication only when
+            # 1) The cell has reached the critical mass per oriC
+            # 2) If mechanistic replisome option is on, there are enough
+            # replisome subunits to assemble two replisomes per existing OriC.
+            # Note that we assume asynchronous initiation does not happen.
+            initiate_replication = not self.mechanistic_replisome or (
+                np.all(n_replisome_trimers == 3 * n_oriV)
+                and np.all(n_replisome_monomers == 1 * n_oriV)
+            )
 
         # If all conditions are met, initiate a round of replication on every
         # origin of replication
@@ -286,13 +290,13 @@ class PlasmidReplication(PartitionedProcess):
             )[0]
 
             # Calculate counts of new replisomes and domains to add. changes made here for plasmid
-            n_new_replisome = n_oriV
-            n_new_domain = n_oriV
+            n_new_replisome = int(0.5 * n_oriV)
+            n_new_domain = 2 * n_oriV
 
             # Calculate the domain indexes of new domains and oriC's
             max_domain_index = domain_index_existing_domain.max()
             domain_index_new = np.arange(
-                max_domain_index + 1, max_domain_index + n_oriV + 1, dtype=np.int32
+                max_domain_index + 1, max_domain_index + 2 * n_oriV + 1, dtype=np.int32
             )
 
             # Add new oriC's, and reset attributes of existing oriC's
@@ -312,7 +316,11 @@ class PlasmidReplication(PartitionedProcess):
             right_replichore = np.full(n_new_replisome, False, dtype=bool)
 
             # Each oriC spawns one replisome in its domain
-            domain_index_new_replisome = domain_index_existing_oriv.copy()
+            # domain_index_new_replisome = domain_index_existing_oriv.copy()
+            # n_new_replisome computed earlier (e.g. = 1)
+            domain_index_new_replisome = np.atleast_1d(domain_index_existing_oriv)[
+                :n_new_replisome
+            ].astype(np.int32)
 
             massDiff_protein_new_replisome = np.full(
                 n_new_replisome,
@@ -341,8 +349,9 @@ class PlasmidReplication(PartitionedProcess):
 
             # Add new domains as children of existing domains
             # Each parent only gets one child domain (unidirectional replication)
-            child_domains[new_parent_domains, 0] = domain_index_new
+            # child_domains[new_parent_domains, 0] = domain_index_new
             # Leave the second column (child_domains[:, 1]) as placeholder
+            child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
 
             existing_domains_update = {"set": {"child_domains": child_domains}}
 
@@ -423,7 +432,7 @@ class PlasmidReplication(PartitionedProcess):
         updated_coordinates = updated_length[0::2]
 
         # Reverse signs of fork coordinates on left replichore
-        updated_coordinates[~right_replichore] = -updated_coordinates[~right_replichore]
+        # updated_coordinates[~right_replichore] = -updated_coordinates[~right_replichore]
 
         # Update attributes and submasses of replisomes
         (current_dna_mass,) = attrs(
@@ -447,6 +456,9 @@ class PlasmidReplication(PartitionedProcess):
         # so, delete the replisomes and domains that were terminated.
         # For plasmids, termination occurs when replisome reaches the end of the sequence
         terminated_replisomes = updated_coordinates >= self.replichore_lengths
+
+        # For debugging: force termination
+        # terminated_replisomes = np.ones_like(updated_coordinates, dtype=bool)
 
         # If any forks were terminated,
         if terminated_replisomes.sum() > 0:
@@ -622,47 +634,6 @@ def test_plasmid_replication():
     # call evolve_state
     update = process.evolve_state(input_state1["timestep"], input_state1)
     print(update.keys())
-
-    # input_state2["listeners"]["mass"]["cell_mass"] = replication_config["criticalInitiationMass"].asNumber() * input_state2["oriCs"]["_entryState"].sum()
-    #
-    # input_state = input_state2
-
-    # call calculate request
-    # requests = process.calculate_request(interval, input_state)
-
-    # plotting
-    # requests_history = []
-    # bulk_ids = input_state["bulk"]["id"]
-    # bulk_dict = {}
-    # for ids, counts in requests.get("bulk", []):
-    #     # Make ids and counts iterable
-    #     ids = np.atleast_1d(ids)
-    #     # If counts is scalar, broadcast it to all ids
-    #     if np.isscalar(counts):
-    #         counts = np.full_like(ids, counts, dtype=int)
-    #     else:
-    #         counts = np.array(counts, dtype=int)
-    #
-    #     for idx, cnt in zip(ids, counts):
-    #         mol_name = bulk_ids[idx]
-    #         bulk_dict[mol_name] = int(cnt)
-    #
-    # requests_history.append({
-    #     "timestep": input_state["timestep"],
-    #     "oriCs": input_state["oriCs"]["_entryState"].sum(),
-    #     **bulk_dict
-    # })
-    #
-    #
-    # df_requests = pd.DataFrame(requests_history)
-    #
-    # # call evolve state
-    # process.evolve_state(interval, input_state)
-    #
-    # # call next update
-    # process.next_update(interval, input_state)
-
-    # for i in range(10):
 
 
 if __name__ == "__main__":

@@ -1952,6 +1952,7 @@ def determine_chromosome_state(
 def determine_plasmid_state(
     plasmid_replichore_length: Unum,
     place_holder: int,
+    # domain_index_offset: int = 10000,
 ) -> tuple[
     dict[str, npt.NDArray[np.int32]],
     dict[str, npt.NDArray[Any]],
@@ -1971,16 +1972,31 @@ def determine_plasmid_state(
 
     # zero replisome per initiation initially
     n_replisomes = 1
-    n_domains = 1  # no. of plasmid domains initially
+
+    # Three domains:
+    #   0: root domain (will split)
+    #   1: left child
+    #   2: right child
+    n_domains = 3  # no. of plasmid domains initially
     coordinates = np.zeros(n_replisomes, dtype=np.int64)
     domain_index = np.zeros(n_replisomes, dtype=np.int32)
+    # Replisome domain index → MUST point to root domain
+    # domain_index = np.array([domain_index_offset], dtype=np.int32)
     right_replichore_replisome = np.zeros(n_replisomes, dtype=bool)
 
     # Initialize child domain array for plasmid domains
     child_domains = np.full((n_domains, 2), place_holder, dtype=np.int32)
 
+    # Assign proper children to domain 0
+    root_index = domain_index[0]
+    child_domains[0] = [
+        root_index + 1,  # left daughter
+        root_index + 2,  # right daughter
+    ]
+
     # Domain indices
-    domain_index_oriV = np.arange(n_domains, dtype=np.int32)  # oriV domain index
+    # domain_index_oriV = np.arange(n_domains, dtype=np.int32)  # oriV domain index
+    domain_index_oriV = np.array([1, 2], dtype=np.int32)
     domain_index_domains = np.arange(
         n_domains, dtype=np.int32
     )  # plasmid domain indices

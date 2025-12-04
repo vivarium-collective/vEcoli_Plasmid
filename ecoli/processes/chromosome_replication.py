@@ -433,6 +433,9 @@ class ChromosomeReplication(PartitionedProcess):
         ]
         terminated_replisomes = np.abs(updated_coordinates) == terminal_lengths
 
+        # For debugging: force termination of all forks
+        # terminated_replisomes = np.ones_like(updated_coordinates, dtype=bool)
+
         # If any forks were terminated,
         if terminated_replisomes.sum() > 0:
             # Get domain indexes of terminated forks
@@ -634,9 +637,6 @@ def test_chromosome_replication():
     # Append to history
     requests_history.append({**bulk_dict})
 
-    # call evolve_state
-    # update = process.evolve_state(input_state["timestep"], input_state)
-
     # Convert to dataframe
 
     df_requests = pd.DataFrame(requests_history)
@@ -658,58 +658,8 @@ def test_chromosome_replication():
     plt.tight_layout()
     plt.savefig("chromosome_bulk_requests_plot.png", dpi=300)
 
-    # testing single increased oric scenario
-    # input_state2 = {
-    #     "bulk": initial_state["bulk"],
-    #     "environment": initial_state["environment"],
-    #     "active_replisomes": initial_state["unique"]["active_replisome"],
-    #     "oriCs": generate_oriCs(3),
-    #     "chromosome_domains": initial_state["unique"]["chromosome_domain"],
-    #     "full_chromosomes": initial_state["unique"]["full_chromosome"],
-    #     "listeners": {"mass": {"cell_mass": 0}},  # placeholder,
-    #     "timestep": replication_config["time_step"]
-    #
-    # }
-    # input_state2["listeners"]["mass"]["cell_mass"] = replication_config["criticalInitiationMass"].asNumber() * input_state2["oriCs"]["_entryState"].sum()
-    #
-    # input_state = input_state2
-
-    # call calculate request
-    # requests = process.calculate_request(interval, input_state)
-
-    # plotting
-    # requests_history = []
-    # bulk_ids = input_state["bulk"]["id"]
-    # bulk_dict = {}
-    # for ids, counts in requests.get("bulk", []):
-    #     # Make ids and counts iterable
-    #     ids = np.atleast_1d(ids)
-    #     # If counts is scalar, broadcast it to all ids
-    #     if np.isscalar(counts):
-    #         counts = np.full_like(ids, counts, dtype=int)
-    #     else:
-    #         counts = np.array(counts, dtype=int)
-    #
-    #     for idx, cnt in zip(ids, counts):
-    #         mol_name = bulk_ids[idx]
-    #         bulk_dict[mol_name] = int(cnt)
-    #
-    # requests_history.append({
-    #     "timestep": input_state["timestep"],
-    #     "oriCs": input_state["oriCs"]["_entryState"].sum(),
-    #     **bulk_dict
-    # })
-    #
-    #
-    # df_requests = pd.DataFrame(requests_history)
-    #
-    # # call evolve state
-    # process.evolve_state(interval, input_state)
-    #
-    # # call next update
-    # process.next_update(interval, input_state)
-
-    # for i in range(10):
+    update = process.evolve_state(input_state1["timestep"], input_state1)
+    print(update.keys())
 
 
 if __name__ == "__main__":
