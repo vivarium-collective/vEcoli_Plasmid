@@ -5,7 +5,7 @@ import pandas as pd
 # Loading Simdata to obtain the bulk id labels
 from ecoli.library.sim_data import LoadSimData
 
-sim_data_default = "out/plasmid/parca/kb/simData.cPickle"
+sim_data_default = "out/plasmid_in_ecoli2/parca/kb/simData.cPickle"
 sim_data = LoadSimData(sim_data_default).sim_data
 
 bulk_molecule_ids = sim_data.internal_state.bulk_molecules.bulk_data[
@@ -65,3 +65,9 @@ replisome_monomer_subunit_ids = bulk_name_to_idx(
 replisome_trimer_subunit_ids = bulk_name_to_idx(
     ["CPLX0-2361[c]", "CPLX0-3761[c]"], bulk_molecule_ids
 )
+
+# %%
+full_plasmids = sim_data.internal_state.unique_molecule.unique_molecule_definitions.get(
+    "full_plasmid"
+)
+x = full_plasmids["_entryState"].sum()

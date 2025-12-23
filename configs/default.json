@@ -68,6 +68,9 @@
     "spatial_environment_config": {},
     "fixed_media": "minimal",
     "condition": "basal",
+    "plasmids": {
+        "PBR322": 1
+    },
 
     "save": false,
     "save_times": [],
