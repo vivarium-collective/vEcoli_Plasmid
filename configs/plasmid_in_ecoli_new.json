@@ -1,5 +1,5 @@
 {
-    "experiment_id": "plasmidwithsequence2",
+    "experiment_id": "plasmid_in_ecoli2",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
@@ -14,6 +14,13 @@
         "out_dir": "out"
     },
     "analysis_options": {
-        "single": {"mass_fraction_summary": {}}
+        "single": {"mass_fraction_summary": {}},
+        "single": {"test_analysis5": {}}
+    },
+    "processes": [
+        "ecoli-plasmid-replication"
+    ],
+    "flow": {
+        "ecoli-plasmid-replication": [["ecoli-tf-binding"]]
     }
 }

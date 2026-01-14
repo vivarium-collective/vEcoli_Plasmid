@@ -203,7 +203,8 @@ class PlasmidReplication(PartitionedProcess):
         if idle_plasmid_domains.size > 0:
             ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
 
-        if n_full_plasmids < 21 and len(ready_domains) > 0:
+        if n_full_plasmids < 50 and len(ready_domains) > 0:
+            # if len(ready_domains) > 0:
             requests["bulk"].append(
                 (self.replisome_trimers_idx, 3 * len(ready_domains))
             )
@@ -252,10 +253,15 @@ class PlasmidReplication(PartitionedProcess):
             )
         )
 
+        # print(f"global time {states['global_time']}")
+        # if states['global_time'] > 24:
+        #     breakpoint()
+
         return requests
 
     def evolve_state(self, timestep, states):
         # Initialize the update dictionary
+
         update = {
             "bulk": [],
             "plasmid_active_replisomes": {},
@@ -299,20 +305,36 @@ class PlasmidReplication(PartitionedProcess):
             ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
 
         initiate_replication = False
+        max_new_replisomes = 0
         # if self.criticalMassPerOriC >= 1.0:
         # for debugging
-        if n_full_plasmids < 21 and len(ready_domains) > 0:
+        if n_full_plasmids < 50 and len(ready_domains) > 0:
+            # if len(ready_domains) > 0:
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
+
+            # Calculate the maximum no.of replisomes that can be assembled in this time step
+            min_trimers = int(np.min(n_replisome_trimers))
+            min_monomers = int(np.min(n_replisome_monomers))
+            max_by_trimers = min_trimers // 3
+            max_by_monomers = min_monomers // 1
+
+            max_new_replisomes = min(max_by_trimers, max_by_monomers)
+
             # Initiate replication only when
             # 1) The cell has reached the critical mass per oriC
             # 2) If mechanistic replisome option is on, there are enough
             # replisome subunits to assemble two replisomes per existing OriC.
             # Note that we assume asynchronous initiation does not happen.
-            initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 3 * len(ready_domains))
-                and np.all(n_replisome_monomers == 1 * len(ready_domains))
+
+            # initiate_replication = not self.mechanistic_replisome or (
+            #     np.all(n_replisome_trimers >= 3 * len(ready_domains))
+            #     and np.all(n_replisome_monomers >= 1 * len(ready_domains))
+            # )
+            # newly added for debugging
+            initiate_replication = (
+                not self.mechanistic_replisome or max_new_replisomes != 0
             )
 
         # If all conditions are met, initiate a round of replication on every
@@ -320,12 +342,6 @@ class PlasmidReplication(PartitionedProcess):
         if initiate_replication:
             # Get attributes of existing oriCs and domains
             (domain_index_existing_oriv,) = attrs(states["oriVs"], ["domain_index"])
-
-            # Filter to only oriVs that belong to ready domains
-            # domain_index_existing_domain_ready = np.array(
-            #     [d for d in domain_index_existing_domain if d in ready_domains],
-            #     dtype=np.int32
-            # )
 
             # Get indexes of the domains that would be getting child domains
             # (domains that contain an origin)
@@ -337,8 +353,8 @@ class PlasmidReplication(PartitionedProcess):
             # n_new_replisome = int(0.5 * n_oriV)
             n_new_replisome = 0
 
-            if np.all(ready_domains != 0) and len(ready_domains) != n_active_replisomes:
-                n_new_replisome = int(len(ready_domains))
+            if np.all(ready_domains != 0) and max_new_replisomes != n_active_replisomes:
+                n_new_replisome = min(len(ready_domains), max_new_replisomes)
 
             n_new_domain = 2 * n_oriV
 
@@ -370,9 +386,13 @@ class PlasmidReplication(PartitionedProcess):
             # domain_index_new_replisome = np.atleast_1d(domain_index_existing_oriv)[
             #     :n_new_replisome
             # ].astype(np.int32)
-            domain_index_new_replisome = np.setdiff1d(
+            candidate_domain_index_new_replisome = np.setdiff1d(
                 ready_domains, domain_index_replisome
             )
+
+            domain_index_new_replisome = candidate_domain_index_new_replisome[
+                :n_new_replisome
+            ]
 
             massDiff_protein_new_replisome = np.full(
                 n_new_replisome,
@@ -415,10 +435,10 @@ class PlasmidReplication(PartitionedProcess):
             # Decrement counts of replisome subunits
             if self.mechanistic_replisome:
                 update["bulk"].append(
-                    (self.replisome_trimers_idx, -3 * len(ready_domains))
+                    (self.replisome_trimers_idx, -3 * n_active_replisomes)
                 )
                 update["bulk"].append(
-                    (self.replisome_monomers_idx, -1 * len(ready_domains))
+                    (self.replisome_monomers_idx, -1 * n_active_replisomes)
                 )
 
         # Write data from this module to a listener
@@ -613,33 +633,6 @@ class PlasmidReplication(PartitionedProcess):
                 update["bulk"].append(
                     (self.replisome_monomers_idx, replisomes_to_delete.sum())
                 )
-
-            # Create new plasmid active replisomes for the first new parents
-
-            # if np.all(terminated_domains == 0):
-            #     n_new_replisome = int(domain_index_new_full_plasmid[-1])
-            #     coordinates_replisome = np.zeros(n_new_replisome, dtype=np.int64)
-            #
-            #     # For plasmids, replication is unidirectional, so no left/right replichore distinction.
-            #     right_replichore = np.full(n_new_replisome, False, dtype=bool)
-            #
-            #     # Each oriC spawns one replisome in its domain
-            #     # domain_index_new_replisome = domain_index_existing_oriv.copy()
-            #     # n_new_replisome computed earlier (e.g. = 1)
-            #     domain_index_new_replisome = domain_index_new_full_plasmid.copy()
-            #
-            #     massDiff_protein_new_replisome = np.full(
-            #         n_new_replisome,
-            #         self.replisome_protein_mass if self.mechanistic_replisome else 0.0,
-            #     )
-            #
-            #     # if n_new_replisome > 0:
-            #     update["plasmid_active_replisomes"]["add"] = {
-            #         "coordinates": coordinates_replisome,
-            #         "right_replichore": right_replichore,
-            #         "domain_index": domain_index_new_replisome,
-            #         "massDiff_protein": massDiff_protein_new_replisome,
-            #     }
 
         return update
 

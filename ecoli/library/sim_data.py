@@ -711,7 +711,7 @@ class LoadSimData:
             "replisome_protein_mass": replisome_mass_array.sum(),
             "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
             "make_elongation_rates": self.sim_data.process.replication.make_elongation_rates,
-            "mechanistic_replisome": self.mechanistic_replisome,
+            "mechanistic_replisome": not self.mechanistic_replisome,
             "replisome_trimers_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
             "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
             "dntps": self.sim_data.molecule_groups.dntps,
