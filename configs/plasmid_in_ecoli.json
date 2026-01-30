@@ -1,5 +1,5 @@
 {
-    "experiment_id": "plasmid_in_ecoli2",
+    "experiment_id": "plasmid_in_ecoli_master",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4

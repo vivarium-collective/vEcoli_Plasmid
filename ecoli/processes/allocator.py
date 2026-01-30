@@ -76,6 +76,9 @@ class Allocator(Step):
         # Helper indices for Numpy indexing
         self.molecule_idx = None
 
+        # debugging
+        self.debug_allocator = False
+
     def ports_schema(self):
         ports = {
             "bulk": numpy_schema("bulk"),
@@ -212,6 +215,65 @@ class Allocator(Step):
         }
 
         # save update as json, with increasing id update_1.json
+        if self.debug_allocator:
+            import os
+            import json
+
+            class NpEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, np.integer):
+                        return int(obj)
+                    if isinstance(obj, np.floating):
+                        return float(obj)
+                    if isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    return super(NpEncoder, self).default(obj)
+
+            debug_outdir = "allocator_debug_out"
+            os.makedirs(debug_outdir, exist_ok=True)
+
+            proc = "ecoli-plasmid-replication"
+            proc_id = self.proc_name_to_idx[proc]
+            plasmid_partitioned_counts = partitioned_counts[:, proc_id]
+
+            expanded_request = []
+            plasmid_allocate = None
+            plasmid_request_indices = None
+            plasmid_request = states["request"][proc]["bulk"]
+
+            # ---- Extract request ----
+            if proc in states["request"] and plasmid_request:
+                for indices, count in plasmid_request:
+                    # Make counts iterable
+                    if np.isscalar(count):
+                        count = [count] * len(indices)
+                    for idx, num in zip(indices, count):
+                        expanded_request.append((idx, num))
+
+            # ---- Extract allocation (only if request exists) ----
+            if plasmid_request and proc in states["allocate"]:
+                plasmid_request_indices = np.array(
+                    [idx for idx, count in expanded_request]
+                )
+
+                plasmid_allocate = plasmid_partitioned_counts
+
+                expanded_allocate = []
+                if plasmid_allocate is not None:
+                    allocated_values = plasmid_allocate[plasmid_request_indices]
+                    for (idx, _), alloc in zip(expanded_request, allocated_values):
+                        expanded_allocate.append((idx, int(alloc)))
+
+                debug_record = {
+                    "source": "allocator",
+                    "requested": expanded_request if expanded_request else None,
+                    "allocated": expanded_allocate if expanded_allocate else None,
+                }
+
+                with open(
+                    os.path.join(debug_outdir, "plasmid_allocator3.jsonl"), "a"
+                ) as f:
+                    f.write(json.dumps(debug_record, cls=NpEncoder) + "\n")
 
         return update
 

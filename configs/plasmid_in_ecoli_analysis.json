@@ -1,11 +1,11 @@
 {
-    "experiment_id": "plasmid_in_ecoli_analysis4",
+    "experiment_id": "plasmid_in_ecoli_full_analysis2",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": "out/plasmid_in_ecoli2/parca/kb/simData.cPickle",
+    "sim_data_path": "out/kb/simData.cPickle",
     "generations": 1,
     "n_init_sims": 1,
     "single_daughters": true,
@@ -15,7 +15,7 @@
     },
     "analysis_options": {
         "single": {"mass_fraction_summary": {}},
-        "single": {"test_analysis5": {}}
+        "single": {"replication_analysis": {}}
     },
     "processes": [
         "ecoli-plasmid-replication"

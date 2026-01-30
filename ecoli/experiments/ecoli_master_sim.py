@@ -1074,7 +1074,10 @@ def run_with_plasmid():
     ecoli_sim.build_ecoli()
     ecoli_sim.run()
 
+    # results = ecoli_sim.ecoli_experiment.emitter.get_data()
+    # results = ecoli_sim.ecoli_experiment.emitter.get_timeseries()
+
 
 if __name__ == "__main__":
-    # main()
-    run_with_plasmid()
+    main()
+    # run_with_plasmid()

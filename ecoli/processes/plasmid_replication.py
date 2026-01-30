@@ -115,6 +115,8 @@ class PlasmidReplication(PartitionedProcess):
 
         self.ppi_idx = None
 
+        self.debug = False
+
     def ports_schema(self):
         return {
             # bulk molecules
@@ -203,8 +205,12 @@ class PlasmidReplication(PartitionedProcess):
         if idle_plasmid_domains.size > 0:
             ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
 
-        if n_full_plasmids < 50 and len(ready_domains) > 0:
-            # if len(ready_domains) > 0:
+        print(f"global time {states['global_time']}")
+        # if states['global_time'] > 60:
+        #     breakpoint()
+
+        # if n_full_plasmids < 100 and len(ready_domains) > 0:
+        if len(ready_domains) > 0:
             requests["bulk"].append(
                 (self.replisome_trimers_idx, 3 * len(ready_domains))
             )
@@ -215,6 +221,36 @@ class PlasmidReplication(PartitionedProcess):
         # If there are no active forks return
 
         if n_active_replisomes == 0:
+            if self.debug:
+                import os
+                import json
+
+                class NpEncoder(json.JSONEncoder):
+                    def default(self, obj):
+                        if isinstance(obj, np.integer):
+                            return int(obj)
+                        if isinstance(obj, np.floating):
+                            return float(obj)
+                        if isinstance(obj, np.ndarray):
+                            return obj.tolist()
+                        return super(NpEncoder, self).default(obj)
+
+                debug_outdir = "allocator_debug_out"
+                os.makedirs(debug_outdir, exist_ok=True)
+
+                debug_record = {
+                    "source": "plasmid_replication",
+                    "time": states["global_time"],
+                    "active replisomes": n_active_replisomes,
+                    "active replisome id": domain_index_replisome,
+                    "ready plasmids": domain_index_replisome[ready_to_replicate_mask],
+                    "idle plasmids": idle_plasmid_domains,
+                    "total plasmids": n_full_plasmids,
+                }
+                with open(
+                    os.path.join(debug_outdir, "plasmid_allocator3.jsonl"), "a"
+                ) as f:
+                    f.write(json.dumps(debug_record, cls=NpEncoder) + "\n")
             return requests
 
         sequence_length = np.abs(np.repeat(fork_coordinates, 2))
@@ -253,9 +289,34 @@ class PlasmidReplication(PartitionedProcess):
             )
         )
 
-        # print(f"global time {states['global_time']}")
-        # if states['global_time'] > 24:
-        #     breakpoint()
+        if self.debug:
+            import os
+            import json
+
+            class NpEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, np.integer):
+                        return int(obj)
+                    if isinstance(obj, np.floating):
+                        return float(obj)
+                    if isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    return super(NpEncoder, self).default(obj)
+
+            debug_outdir = "allocator_debug_out"
+            os.makedirs(debug_outdir, exist_ok=True)
+
+            debug_record = {
+                "source": "plasmid_replication",
+                "time": states["global_time"],
+                "active replisomes": n_active_replisomes,
+                "active replisome id": domain_index_replisome,
+                "ready plasmids": domain_index_replisome[ready_to_replicate_mask],
+                "idle plasmids": idle_plasmid_domains,
+                "total plasmids": n_full_plasmids,
+            }
+            with open(os.path.join(debug_outdir, "plasmid_allocator3.jsonl"), "a") as f:
+                f.write(json.dumps(debug_record, cls=NpEncoder) + "\n")
 
         return requests
 
@@ -275,7 +336,7 @@ class PlasmidReplication(PartitionedProcess):
         # Get number of existing replisomes and oriCs
         n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
         n_oriV = states["oriVs"]["_entryState"].sum()
-        n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
+        # n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
         # Get current fork coordinates and associated domain indices
         (fork_coordinates, domain_index_replisome) = attrs(
             states["plasmid_active_replisomes"], ["coordinates", "domain_index"]
@@ -308,8 +369,8 @@ class PlasmidReplication(PartitionedProcess):
         max_new_replisomes = 0
         # if self.criticalMassPerOriC >= 1.0:
         # for debugging
-        if n_full_plasmids < 50 and len(ready_domains) > 0:
-            # if len(ready_domains) > 0:
+        # if n_full_plasmids < 100 and len(ready_domains) > 0:
+        if len(ready_domains) > 0:
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
@@ -352,24 +413,41 @@ class PlasmidReplication(PartitionedProcess):
             # Calculate counts of new replisomes and domains to add. changes made here for plasmid
             # n_new_replisome = int(0.5 * n_oriV)
             n_new_replisome = 0
+            n_new_domain = 0
+            domain_index_new = []
 
             if np.all(ready_domains != 0) and max_new_replisomes != n_active_replisomes:
                 n_new_replisome = min(len(ready_domains), max_new_replisomes)
 
-            n_new_domain = 2 * n_oriV
+                n_new_domain = 2 * max_new_replisomes
 
-            # Calculate the domain indexes of new domains and oriC's
-            max_domain_index = domain_index_existing_domain.max()
-            domain_index_new = np.arange(
-                max_domain_index + 1, max_domain_index + 2 * n_oriV + 1, dtype=np.int32
-            )
+                # Calculate the domain indexes of new domains and oriC's
+                max_domain_index = domain_index_existing_domain.max()
+                domain_index_new = np.arange(
+                    max_domain_index + 1,
+                    max_domain_index + 2 * max_new_replisomes + 1,
+                    dtype=np.int32,
+                )
 
             # Add new oriC's, and reset attributes of existing oriC's
             # All oriC's must be assigned new domain indexes
-            update["oriVs"]["set"] = {"domain_index": domain_index_new[:n_oriV]}
-            update["oriVs"]["add"] = {
-                "domain_index": domain_index_new[n_oriV:],
-            }
+            if len(domain_index_new) > 0:
+                if n_oriV > max_new_replisomes:
+                    n_excess_orivs = n_oriV - max_new_replisomes
+                    domain_index_new_oriv = np.concatenate(
+                        (domain_index_existing_oriv[-n_excess_orivs:], domain_index_new)
+                    )
+                    update["oriVs"]["set"] = {
+                        "domain_index": domain_index_new_oriv[:n_oriV]
+                    }
+                    update["oriVs"]["add"] = {
+                        "domain_index": domain_index_new_oriv[n_oriV:],
+                    }
+                else:
+                    update["oriVs"]["set"] = {"domain_index": domain_index_new[:n_oriV]}
+                    update["oriVs"]["add"] = {
+                        "domain_index": domain_index_new[n_oriV:],
+                    }
 
             # Add and set attributes of newly created plasmid replisomes.
             # New replisomes inherit the domain indexes of the oriV's they
@@ -406,31 +484,34 @@ class PlasmidReplication(PartitionedProcess):
                 "massDiff_protein": massDiff_protein_new_replisome,
             }
 
-            # Add and set attributes of new plasmid domains.
-            # Each new domain should have no children initially.
-            new_child_domains = np.full(
-                (n_new_domain, 2), self.no_child_place_holder, dtype=np.int32
-            )
+            if n_new_domain != 0:
+                # Add and set attributes of new plasmid domains.
+                # Each new domain should have no children initially.
+                new_child_domains = np.full(
+                    (n_new_domain, 2), self.no_child_place_holder, dtype=np.int32
+                )
 
-            new_domains_update = {
-                "add": {
-                    "domain_index": domain_index_new,
-                    "child_domains": new_child_domains,
+                new_domains_update = {
+                    "add": {
+                        "domain_index": domain_index_new,
+                        "child_domains": new_child_domains,
+                    }
                 }
-            }
 
-            # Add new domains as children of existing domains
-            # Each parent only gets one child domain (unidirectional replication)
-            # child_domains[new_parent_domains, 0] = domain_index_new
-            # Leave the second column (child_domains[:, 1]) as placeholder
-            if new_parent_domains.size > 0:
-                child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
+                # Add new domains as children of existing domains
+                # Each parent only gets one child domain (unidirectional replication)
+                # child_domains[new_parent_domains, 0] = domain_index_new
+                # Leave the second column (child_domains[:, 1]) as placeholder
+                if new_parent_domains.size > 0:
+                    if new_parent_domains.size != max_new_replisomes:
+                        new_parent_domains = new_parent_domains[:max_new_replisomes]
+                    child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
 
-            existing_domains_update = {"set": {"child_domains": child_domains}}
+                existing_domains_update = {"set": {"child_domains": child_domains}}
 
-            update["plasmid_domains"].update(
-                {**new_domains_update, **existing_domains_update}
-            )
+                update["plasmid_domains"].update(
+                    {**new_domains_update, **existing_domains_update}
+                )
 
             # Decrement counts of replisome subunits
             if self.mechanistic_replisome:
