@@ -153,7 +153,7 @@ class Allocator(Step):
                 )
             )
 
-        # Calculate partition
+            # Calculate partition
         partitioned_counts = calculatePartition(
             self.processPriorities,
             counts_requested,
@@ -232,48 +232,88 @@ class Allocator(Step):
             debug_outdir = "allocator_debug_out"
             os.makedirs(debug_outdir, exist_ok=True)
 
-            proc = "ecoli-plasmid-replication"
-            proc_id = self.proc_name_to_idx[proc]
-            plasmid_partitioned_counts = partitioned_counts[:, proc_id]
+            # Counter to stop after 3 logs
+            logged_requests = 0
+            max_requests = 3
 
-            expanded_request = []
-            plasmid_allocate = None
-            plasmid_request_indices = None
-            plasmid_request = states["request"][proc]["bulk"]
+            proc = "ecoli-chromosome-replication"
+            target_monomer = "EG10239-MONOMER[c]"
 
-            # ---- Extract request ----
-            if proc in states["request"] and plasmid_request:
-                for indices, count in plasmid_request:
-                    # Make counts iterable
-                    if np.isscalar(count):
-                        count = [count] * len(indices)
-                    for idx, num in zip(indices, count):
-                        expanded_request.append((idx, num))
+            chromosome_request = states["request"].get(proc, {}).get("bulk", [])
 
-            # ---- Extract allocation (only if request exists) ----
-            if plasmid_request and proc in states["allocate"]:
-                plasmid_request_indices = np.array(
-                    [idx for idx, count in expanded_request]
-                )
+            trigger = False
 
-                plasmid_allocate = plasmid_partitioned_counts
+            for indices, count in chromosome_request:
+                if np.isscalar(count):
+                    count = [count] * len(indices)
 
-                expanded_allocate = []
-                if plasmid_allocate is not None:
-                    allocated_values = plasmid_allocate[plasmid_request_indices]
-                    for (idx, _), alloc in zip(expanded_request, allocated_values):
-                        expanded_allocate.append((idx, int(alloc)))
+                for idx, _ in zip(indices, count):
+                    mol_name = states["bulk"]["id"][idx]
 
-                debug_record = {
-                    "source": "allocator",
-                    "requested": expanded_request if expanded_request else None,
-                    "allocated": expanded_allocate if expanded_allocate else None,
-                }
+                    if mol_name == target_monomer:
+                        trigger = True
+                        break
 
-                with open(
-                    os.path.join(debug_outdir, "plasmid_allocator3.jsonl"), "a"
-                ) as f:
-                    f.write(json.dumps(debug_record, cls=NpEncoder) + "\n")
+                # Only log the first 3 times
+                if trigger and logged_requests < max_requests:
+                    debug_record = {}
+
+                    for proc in [
+                        "ecoli-plasmid-replication",
+                        "ecoli-chromosome-replication",
+                    ]:
+                        proc_id = self.proc_name_to_idx[proc]
+                        proc_partitioned_counts = partitioned_counts[:, proc_id]
+                        proc_request_list = (
+                            states["request"].get(proc, {}).get("bulk", [])
+                        )
+
+                        expanded_request = []
+                        expanded_allocate = []
+
+                        # ---- Extract request ----
+                        if proc_request_list:
+                            for indices2, count2 in proc_request_list:
+                                if np.isscalar(count2):
+                                    count2 = [count2] * len(indices2)
+                                for idx2, num2 in zip(indices2, count2):
+                                    expanded_request.append((idx2, num2))
+
+                        # ---- Extract allocation ----
+                        if proc_request_list and proc in states["allocate"]:
+                            request_indices = np.array(
+                                [idx2 for idx2, _ in expanded_request]
+                            )
+                            if proc_partitioned_counts is not None:
+                                allocated_values = proc_partitioned_counts[
+                                    request_indices
+                                ]
+                                for (idx2, _), alloc in zip(
+                                    expanded_request, allocated_values
+                                ):
+                                    expanded_allocate.append((idx2, int(alloc)))
+
+                        debug_record[proc] = {
+                            "requested": expanded_request if expanded_request else None,
+                            "allocated": expanded_allocate
+                            if expanded_allocate
+                            else None,
+                        }
+
+                    with open(
+                        os.path.join(
+                            debug_outdir,
+                            "chromosome_plasmid_allocator_no_priority.jsonl",
+                        ),
+                        "a",
+                    ) as f:
+                        f.write(json.dumps(debug_record, cls=NpEncoder) + "\n")
+
+                    logged_requests += 1
+
+                # Stop looping through remaining requests after 3 logs
+                if logged_requests >= max_requests:
+                    break
 
         return update
 

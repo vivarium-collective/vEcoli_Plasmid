@@ -205,7 +205,6 @@ class PlasmidReplication(PartitionedProcess):
         if idle_plasmid_domains.size > 0:
             ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
 
-        print(f"global time {states['global_time']}")
         # if states['global_time'] > 60:
         #     breakpoint()
 
@@ -367,9 +366,6 @@ class PlasmidReplication(PartitionedProcess):
 
         initiate_replication = False
         max_new_replisomes = 0
-        # if self.criticalMassPerOriC >= 1.0:
-        # for debugging
-        # if n_full_plasmids < 100 and len(ready_domains) > 0:
         if len(ready_domains) > 0:
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
@@ -382,18 +378,6 @@ class PlasmidReplication(PartitionedProcess):
             max_by_monomers = min_monomers // 1
 
             max_new_replisomes = min(max_by_trimers, max_by_monomers)
-
-            # Initiate replication only when
-            # 1) The cell has reached the critical mass per oriC
-            # 2) If mechanistic replisome option is on, there are enough
-            # replisome subunits to assemble two replisomes per existing OriC.
-            # Note that we assume asynchronous initiation does not happen.
-
-            # initiate_replication = not self.mechanistic_replisome or (
-            #     np.all(n_replisome_trimers >= 3 * len(ready_domains))
-            #     and np.all(n_replisome_monomers >= 1 * len(ready_domains))
-            # )
-            # newly added for debugging
             initiate_replication = (
                 not self.mechanistic_replisome or max_new_replisomes != 0
             )

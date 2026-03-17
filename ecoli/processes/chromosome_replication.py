@@ -179,6 +179,7 @@ class ChromosomeReplication(PartitionedProcess):
         # access to oriC and chromosome domain attributes
         requests["bulk"] = []
         if self.criticalMassPerOriC >= 1.0:
+            print(f"Global time: {states['global_time']}")
             # the two lines below are the two original code lines
             requests["bulk"].append((self.replisome_trimers_idx, 6 * n_oriC))
             requests["bulk"].append((self.replisome_monomers_idx, 2 * n_oriC))
@@ -271,6 +272,7 @@ class ChromosomeReplication(PartitionedProcess):
         # If all conditions are met, initiate a round of replication on every
         # origin of replication
         if initiate_replication:
+            # print(f"Global time: {states['global_time']}")
             # Get attributes of existing oriCs and domains
             (domain_index_existing_oric,) = attrs(states["oriCs"], ["domain_index"])
 
@@ -521,7 +523,8 @@ class ChromosomeReplication(PartitionedProcess):
                 )
 
             # Increment counts of replisome subunits
-            if self.mechanistic_replisome:
+            # Changed have to debug!!!
+            if not self.mechanistic_replisome:
                 update["bulk"].append(
                     (self.replisome_trimers_idx, 3 * replisomes_to_delete.sum())
                 )

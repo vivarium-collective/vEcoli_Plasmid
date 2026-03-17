@@ -661,7 +661,7 @@ class LoadSimData:
             "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
             "make_elongation_rates": self.sim_data.process.replication.make_elongation_rates,
             # sim options
-            "mechanistic_replisome": self.mechanistic_replisome,
+            "mechanistic_replisome": not self.mechanistic_replisome,
             # molecules
             "replisome_trimers_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
             "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
@@ -1578,6 +1578,8 @@ class LoadSimData:
             "custom_priorities": {
                 "ecoli-rna-degradation": 10,
                 "ecoli-protein-degradation": 10,
+                # assigning priority to chromosome over plasmid
+                "ecoli-chromosome-replication": 5,
                 "ecoli-two-component-system": -5,
                 "ecoli-tf-binding": -10,
                 "ecoli-metabolism": -10,
