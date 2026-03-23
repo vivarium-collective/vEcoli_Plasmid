@@ -128,6 +128,13 @@ See :ref:`sherlock-config` for a description of the Sherlock-specific
 configuration options and :ref:`sherlock-running` for details about running
 a workflow on Sherlock.
 
+.. note::
+   ``test_sherlock.json`` sets ``out_dir`` to ``.``. In relative path syntax,
+   this refers to the current directory, meaning the cloned repo. This makes
+   the configuration portable as it does not assume the presence of any other
+   folders. However, as noted in :ref:`sherlock-config`, we recommend changing
+   this in your workflows. 
+
 To run scripts on Sherlock outside a workflow, see :ref:`sherlock-interactive`.
 To run scripts on Sherlock through a SLURM batch script, see :ref:`sherlock-noninteractive`.
 
@@ -176,7 +183,10 @@ keys in your configuration JSON (note the top-level ``sherlock`` key):
     "sherlock": {
       # Boolean, whether to build a fresh Apptainer image. If files that are
       # not excluded by .dockerignore did not change since your last build,
-      # you can set this to false to skip building the image.
+      # you can set this to false to skip building the image. DO NOT set this
+      # to a location in the cloned repo or else the resulting image(s) will be
+      # included in future image builds. test_sherlock.json is an exception
+      # because the test_sherlock folder is ignored by .dockerignore.
       "build_image": true,
       # Path (relative or absolute, including file name) of Apptainer image to
       # build (or use directly, if build_image is false)
@@ -196,8 +206,12 @@ In addition to these options, you **MUST** set the emitter output directory
 enough space to store your workflow outputs. 
 
 .. important::
-   We recommend setting ``emitter_arg`` to a location in your ``$SCRATCH`` directory (e.g. ``"out_dir": "/scratch/users/{username}/out"``),
-   since ``$HOME`` only has a pretty small storage limit (run ``sh_quota`` to view).
+
+   We recommend setting ``out_dir`` under ``emitter_arg`` to a location in your
+   ``$SCRATCH`` directory to circumvent the ``$HOME`` storage limit
+   (run ``sh_quota`` to view). Make sure to use an absolute path
+   (e.g. ``/scratch/users/{username}``).
+
 
 If using the Parquet emitter and ``threaded`` is not set to false under
 ``emitter_arg``, a warning will be printed suggesting that you set ``threaded``
@@ -238,6 +252,10 @@ job starts, the terminal will report the build progress.
 .. note::
   Files that match the patterns in ``.dockerignore`` are excluded from the image.
 
+.. note::
+  If the Apptainer build fails, eg:
+  ``FATAL:   While performing build: conveyor failed to get: unexpected end of JSON input``,
+  try cleaning cache: ``apptainer cache clean``
 .. warning::
   Do not make any changes to your cloned repository or close your SSH
   connection until the build has finished.
@@ -301,6 +319,10 @@ To run scripts on Sherlock, you must have either:
 - Built a container image manually using ``runscripts/container/build-image.sh`` with
   the ``-a`` flag
 
+.. note::
+   If ``build-image.sh`` fails with an error about ``squashfs_ll`` being killed,
+   try requesting more memory (e.g. ``srun --mem=8GB``). We recommend at least 8GB.
+
 Start an interactive container with your full image path (see the warning box at
 :doc:`workflows`) by navigating to your cloned repository and running:
 
@@ -311,6 +333,13 @@ Start an interactive container with your full image path (see the warning box at
 .. note::
   Inside the interactive container, you can safely use ``python`` directly
   in addition to the usual ``uv`` commands.
+
+.. tip::
+   Use the ``-h`` flag to see all available options for
+   ``runscripts/container/interactive.sh``. One particularly
+   useful option is ``-p``, which allows you to bind mount
+   additional directories into the container. This is necessary
+   if your ``out_dir`` is not automatically mounted by Apptainer.
 
 The above command launches a container containing a snapshot of your
 cloned repository as it was when the image was built. This snapshot
@@ -422,7 +451,7 @@ cloned repository may affect SLURM batch jobs submitted with this flag.
 .. _Download Results to Local from Sherlock:
 
 Download Results to Local from Sherlock
-====================================
+
 
 It's recommended to turn to 
 `Sherlock's Data Transfer documentation <https://www.sherlock.stanford.edu/docs/storage/data-transfer/>`_

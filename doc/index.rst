@@ -42,6 +42,7 @@ in the Vivarium documentation.
    composites
    experiments
    workflows
+   data_ingestion
    output
    tutorial
    docs
@@ -49,4 +50,5 @@ in the Vivarium documentation.
    gcloud
    ci
    pycharm
+   diffs
    API Reference <reference/api_ref.rst>

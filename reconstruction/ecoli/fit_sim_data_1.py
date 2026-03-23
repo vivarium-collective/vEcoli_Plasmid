@@ -28,11 +28,9 @@ from wholecell.utils.fitting import normalize, masses_and_counts_for_homeostatic
 
 
 # Fitting parameters
-# NOTE: This threshold is arbitrary and was relaxed from 1e-9
-# to 1e-8 to fix failure to converge after scipy/scipy#20168.
-# Later relaxed to 3.3e-8 due to convergence failures on Sherlock.
-FITNESS_THRESHOLD = 3.3e-8
-MAX_FITTING_ITERATIONS = 150
+# NOTE: This threshold is arbitrary but relaxing it too much can slow doubling time.
+FITNESS_THRESHOLD = 1e-9
+MAX_FITTING_ITERATIONS = 200
 N_SEEDS = 10
 
 # Parameters used in fitPromoterBoundProbability()
@@ -43,8 +41,6 @@ PROMOTER_NORM_TYPE = 1  # Matrix 1-norm
 PROMOTER_MAX_ITERATIONS = 100
 PROMOTER_CONVERGENCE_THRESHOLD = 1e-9
 ECOS_0_TOLERANCE = 1e-10  # Tolerance to adjust solver output to 0
-
-BASAL_EXPRESSION_CONDITION = "M9 Glucose minus AAs"
 
 VERBOSE = 1
 
@@ -84,6 +80,13 @@ def fitSimData_1(raw_data, **kwargs):
                     expression is not fit to protein synthesis demands
             cache_dir (str) - path to the directory to save cached data for
                     affinities of RNAs binding to endoRNases
+            rnaseq_manifest_path (str or None) - path to RNA-seq manifest TSV;
+                    if None, use legacy raw_data.rna_seq_data tables
+            rnaseq_basal_dataset_id (str or None) - dataset_id from manifest to
+                    use as basal transcriptome; required if rnaseq_manifest_path is set
+            basal_expression_condition (str) - modeled condition name for
+                    the baseline growth state (default: "M9 Glucose minus AAs",
+                    defined in configs/default.json)
 
     """
 
@@ -195,7 +198,12 @@ def save_state(func):
 def initialize(sim_data, cell_specs, raw_data=None, **kwargs):
     sim_data.initialize(
         raw_data=raw_data,
-        basal_expression_condition=BASAL_EXPRESSION_CONDITION,
+        basal_expression_condition=kwargs.get("basal_expression_condition"),
+        rnaseq_manifest_path=kwargs.get("rnaseq_manifest_path"),
+        rnaseq_basal_dataset_id=kwargs.get("rnaseq_basal_dataset_id"),
+        rnaseq_fill_missing_genes_from_ref=kwargs.get(
+            "rnaseq_fill_missing_genes_from_ref", True
+        ),
     )
 
     return sim_data, cell_specs
