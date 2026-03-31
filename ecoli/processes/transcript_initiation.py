@@ -453,6 +453,9 @@ class TranscriptInitiation(PartitionedProcess):
             "promoters": {},
             "RNAs": {},
         }
+        # rifampicin experiment debugging
+        # if states["global_time"] > 600:
+        #     return update
 
         # no synthesis if no chromosome
         if len(states["full_chromosomes"]) == 0:

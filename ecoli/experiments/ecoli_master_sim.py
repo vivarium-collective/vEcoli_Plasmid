@@ -1066,6 +1066,9 @@ def main():
     Runs a simulation with CLI options.
     """
     ecoli_sim = EcoliSim.from_cli()
+    # ecoli_sim = EcoliSim.from_file(
+    #     filepath="/Users/rashmidissasekara/Documents/code/vEcoli/configs/DnaAboxes.json"
+    # )
     ecoli_sim.build_ecoli()
     ecoli_sim.run()
 

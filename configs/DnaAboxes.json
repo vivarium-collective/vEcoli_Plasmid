@@ -1,19 +1,22 @@
 {
-    "experiment_id": "DnaAboxes_combined_figure",
+    "experiment_id": "multiseed_noDperiod",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": "out/DnaAboxes/parca/kb/simData.cPickle",
+    "sim_data_path": null,
     "generations": 1,
-    "n_init_sims": 1,
+    "n_init_sims": 10,
     "single_daughters": true,
     "emitter": "parquet",
     "emitter_arg": {
         "out_dir": "out"
     },
     "analysis_options": {
-        "single": {"DnaA_analysis": {}}
-    }
+        "multiseed": {"Rifampicin": {}}
+    },
+    "d_period": false,
+    "division_threshold": "mass_distribution",
+    "division_variable": ["listeners", "mass", "dry_mass"]
 }

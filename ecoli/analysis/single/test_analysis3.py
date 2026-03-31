@@ -112,3 +112,7 @@ replisome_subunits = bulk_name_to_idx(
     ],
     bulk_molecule_ids,
 )
+
+# %%
+adp_id = bulk_name_to_idx("ADP[c]", bulk_molecule_ids)
+phosphatidylglycerol = bulk_name_to_idx("CPD-8260[c]", bulk_molecule_ids)
