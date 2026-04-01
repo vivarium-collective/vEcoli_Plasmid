@@ -1,1 +1,1 @@
-export division_time=2530.0
+export division_time=2528.0

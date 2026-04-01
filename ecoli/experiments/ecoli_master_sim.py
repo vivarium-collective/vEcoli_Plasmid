@@ -1085,5 +1085,5 @@ def run_with_plasmid():
 
 
 if __name__ == "__main__":
-    main()
-    # run_with_plasmid()
+    # main()
+    run_with_plasmid()
