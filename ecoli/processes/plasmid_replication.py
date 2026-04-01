@@ -1,19 +1,21 @@
 """
 ======================
-Chromosome Replication
+Plasmid Replication
 ======================
 
-Performs initiation, elongation, and termination of active partial chromosomes
-that replicate the chromosome.
+Adapted from chromosome replication.
+Performs initiation, elongation, and termination of active plasmid molecules
+that replicate independently of the chromosome. (ColE1 - pBR322)
 
-First, a round of replication is initiated at a ﬁxed cell mass per origin
-of replication and generally occurs once per cell cycle. Second, replication
-forks are elongated up to the maximal expected elongation rate, dNTP resource
-limitations, and template strand sequence but elongation does not take into
-account the action of topoisomerases or the enzymes in the replisome. Finally,
-replication forks terminate once they reach the end of their template strand
-and the chromosome immediately decatenates forming two separate chromosome
-molecules.
+Plasmid replication is initiated asynchronously depending on resource availability
+at individual plasmid molecules with no copy number control yet. Second, replication forks
+are elongated unidirectionally up to the maximal expected elongation rate, dNTP resource
+limitations, and template strand sequence but elongation does not take into account the
+action of topoisomerases or the enzymes in the replisome. Finally, replication forks terminate
+once they reach the end of their template strand producing fully replicated plasmid molecules
+that remain separate from the chromosome and each other.
+
+# TODO: Implement copy number control
 """
 
 import numpy as np
@@ -156,34 +158,15 @@ class PlasmidReplication(PartitionedProcess):
         requests = {}
         # Get total count of existing oriV's
         n_oriV = states["oriVs"]["_entryState"].sum()
-        # n_oriC = 1
         # If there are no origins, return immediately
         if n_oriV == 0:
             return requests
 
-        # Get current cell mass
-        # cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
-
-        # Get critical initiation mass for current simulation environment
-        # current_media_id = states["environment"]["media_id"]
-        # self.criticalInitiationMass = self.get_dna_critical_mass(
-        #     self.nutrientToDoublingTime[current_media_id]
-        # )
-
-        # Calculate mass per origin of replication, and compare to critical
-        # initiation mass. If the cell mass has reached this critical mass,
-        # the process will initiate a round of chromosome replication for each
-        # origin of replication.
-        # massPerOrigin = cellMass / n_oriC
-        # self.criticalMassPerOriC = massPerOrigin / self.criticalInitiationMass
-
         # If replication should be initiated, request subunits required for
-        # building two replisomes per one origin of replication, and edit
-        # access to oriC and chromosome domain attributes
+        # building one replisome per one origin of replication, and edit
+        # access to oriC and plasmid domain attributes
         requests["bulk"] = []
-        # if self.criticalMassPerOriC >= 1.0:
-        # the two lines below are the two original code lines
-        # for debugging
+
         n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
         n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
         # Get current locations of all replication forks
@@ -195,7 +178,7 @@ class PlasmidReplication(PartitionedProcess):
         # Domain indices of plasmids ready to replicate
         ready_domains = domain_index_replisome[ready_to_replicate_mask]
 
-        # Get attributes of existing chromosome domains
+        # Get attributes of existing plasmid domains
         domain_index_existing_plasmid = attrs(states["full_plasmids"], ["domain_index"])
         # for newly replicated plasmids without active replisomes yet
         idle_plasmid_domains = np.setdiff1d(
@@ -351,7 +334,7 @@ class PlasmidReplication(PartitionedProcess):
         if n_oriV == 0:
             return update
 
-        # Get attributes of existing chromosome domains
+        # Get attributes of existing plasmid domains
         domain_index_existing_domain, child_domains = attrs(
             states["plasmid_domains"], ["domain_index", "child_domains"]
         )
@@ -382,8 +365,7 @@ class PlasmidReplication(PartitionedProcess):
                 not self.mechanistic_replisome or max_new_replisomes != 0
             )
 
-        # If all conditions are met, initiate a round of replication on every
-        # origin of replication
+        # If all conditions are met, initiate a round of replication on max no.of orivs as possible
         if initiate_replication:
             # Get attributes of existing oriCs and domains
             (domain_index_existing_oriv,) = attrs(states["oriVs"], ["domain_index"])
@@ -395,7 +377,6 @@ class PlasmidReplication(PartitionedProcess):
             )[0]
 
             # Calculate counts of new replisomes and domains to add. changes made here for plasmid
-            # n_new_replisome = int(0.5 * n_oriV)
             n_new_replisome = 0
             n_new_domain = 0
             domain_index_new = []
@@ -442,12 +423,6 @@ class PlasmidReplication(PartitionedProcess):
             # For plasmids, replication is unidirectional, so no left/right replichore distinction.
             right_replichore = np.full(n_new_replisome, False, dtype=bool)
 
-            # Each oriC spawns one replisome in its domain
-            # domain_index_new_replisome = domain_index_existing_oriv.copy()
-            # n_new_replisome computed earlier (e.g. = 1)
-            # domain_index_new_replisome = np.atleast_1d(domain_index_existing_oriv)[
-            #     :n_new_replisome
-            # ].astype(np.int32)
             candidate_domain_index_new_replisome = np.setdiff1d(
                 ready_domains, domain_index_replisome
             )
@@ -505,14 +480,6 @@ class PlasmidReplication(PartitionedProcess):
                 update["bulk"].append(
                     (self.replisome_monomers_idx, -1 * n_active_replisomes)
                 )
-
-        # Write data from this module to a listener
-        # update["listeners"]["replication_data"]["critical_mass_per_oriC"] = (
-        #     self.criticalMassPerOriC.asNumber()
-        # )
-        # update["listeners"]["replication_data"]["critical_initiation_mass"] = (
-        #     self.criticalInitiationMass.asNumber(units.fg)
-        # )
 
         # Module 2: replication elongation
         # If no active replisomes are present, return immediately
@@ -573,9 +540,6 @@ class PlasmidReplication(PartitionedProcess):
         updated_length = sequence_length + sequenceElongations
         updated_coordinates = updated_length[0::2]
 
-        # Reverse signs of fork coordinates on left replichore
-        # updated_coordinates[~right_replichore] = -updated_coordinates[~right_replichore]
-
         # Update attributes and submasses of replisomes
         (current_dna_mass,) = attrs(
             states["plasmid_active_replisomes"], ["massDiff_DNA"]
@@ -610,7 +574,7 @@ class PlasmidReplication(PartitionedProcess):
                 domain_index_replisome[terminated_replisomes]
             )
 
-            # Get attributes of existing domains and full chromosomes
+            # Get attributes of existing domains and full plasmids
             (
                 domain_index_domains,
                 child_domains,
@@ -622,10 +586,10 @@ class PlasmidReplication(PartitionedProcess):
             # Initialize array of replisomes that should be deleted
             replisomes_to_delete = np.zeros_like(domain_index_replisome, dtype=np.bool_)
 
-            # Count number of new full chromosomes that should be created
+            # Count number of new full plasmids that should be created
             n_new_plasmids = 0
 
-            # Initialize array for domain indexes of new full chromosomes
+            # Initialize array for domain indexes of new full plasmids
             domain_index_new_full_plasmid = []
 
             for terminated_domain_index in terminated_domains:
@@ -650,7 +614,7 @@ class PlasmidReplication(PartitionedProcess):
                         np.where(domain_mask)[0][0], :
                     ]
 
-                    # Modify domain index of one existing full chromosome to
+                    # Modify domain index of one existing full plasmid to
                     # index of first child domain
                     domain_index_full_plasmid = domain_index_full_plasmid.copy()
                     domain_index_full_plasmid[
@@ -659,10 +623,10 @@ class PlasmidReplication(PartitionedProcess):
                         ]
                     ] = child_domains_this_domain[0]
 
-                    # Increment count of new full chromosome
+                    # Increment count of new full plasmid
                     n_new_plasmids += 1
 
-                    # Append chromosome index of new full chromosome
+                    # Append plasmid index of new full plasmid
                     domain_index_new_full_plasmid.append(child_domains_this_domain[1])
 
             # Delete terminated replisomes
@@ -670,7 +634,7 @@ class PlasmidReplication(PartitionedProcess):
                 replisomes_to_delete
             )[0]
 
-            # Generate new full chromosome molecules
+            # Generate new full plasmid molecules
             if n_new_plasmids > 0:
                 plasmid_add_update = {
                     "add": {
@@ -680,7 +644,7 @@ class PlasmidReplication(PartitionedProcess):
                     }
                 }
 
-                # Reset domain index of existing chromosomes that have finished
+                # Reset domain index of existing plasmids that have finished
                 # replication
                 plasmid_existing_update = {
                     "set": {"domain_index": domain_index_full_plasmid}
