@@ -1,11 +1,11 @@
 {
-    "experiment_id": "mechanistic_chromosome_plasmid_priority",
+    "experiment_id": "mechanistic_chromosome_plasmid_priority_new",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": "out/mechanistic_chromosome_plasmid_priority_2/parca/kb/simData.cPickle",
+    "sim_data_path": null,
     "generations": 1,
     "n_init_sims": 1,
     "single_daughters": true,

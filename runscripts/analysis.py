@@ -604,17 +604,6 @@ def main():
     with open(metadata_path, "w") as f:
         json.dump(config, f)
 
-    # Save copy of config JSON with parameters for plots
-    metadata_path = os.path.join(os.path.abspath(config["outdir"]), "metadata.json")
-    if os.path.exists(metadata_path):
-        raise FileExistsError(
-            f"{metadata_path} already exists, indicating an analysis has "
-            f"been run with output directory {config['outdir']}. Please "
-            "delete/move it or specify a different output directory."
-        )
-    with open(metadata_path, "w") as f:
-        json.dump(config, f)
-
     # Establish DuckDB connection
     conn = create_duckdb_conn(out_uri, gcs_bucket, config.get("cpus"))
     history_sql, config_sql, success_sql = dataset_sql(out_uri, config["experiment_id"])

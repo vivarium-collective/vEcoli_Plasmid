@@ -178,8 +178,8 @@ class ChromosomeReplication(PartitionedProcess):
         # building two replisomes per one origin of replication, and edit
         # access to oriC and chromosome domain attributes
         requests["bulk"] = []
+        # Trying to fix the bookkeeping issue by requesting replisome subunits in the beginning
         if self.criticalMassPerOriC >= 1.0:
-            print(f"Global time: {states['global_time']}")
             # the two lines below are the two original code lines
             requests["bulk"].append((self.replisome_trimers_idx, 6 * n_oriC))
             requests["bulk"].append((self.replisome_monomers_idx, 2 * n_oriC))
@@ -350,10 +350,17 @@ class ChromosomeReplication(PartitionedProcess):
             self.criticalInitiationMass.asNumber(units.fg)
         )
 
+        # Trying to fix the bookkeeping issue by subtracting bound replisome subunits in the beginning
+        # print(states['global_time'])
+        # if states['global_time'] == 1:
+        #     update["bulk"].append((self.replisome_trimers_idx, -3 * n_active_replisomes))
+        #     update["bulk"].append((self.replisome_monomers_idx, -n_active_replisomes))
+
         # Module 2: replication elongation
         # If no active replisomes are present, return immediately
         # Note: the new replication forks added in the previous module are not
         # elongated until the next timestep.
+
         if n_active_replisomes == 0:
             return update
 
@@ -523,8 +530,10 @@ class ChromosomeReplication(PartitionedProcess):
                 )
 
             # Increment counts of replisome subunits
-            # TODO: Releasing these subunits cause negative values in unallocated. Hence, temporary not condition
-            if not self.mechanistic_replisome:
+            if self.mechanistic_replisome:
+                # print(f"Global time when replisome terminated: {states['global_time']}")
+                # if states['global_time'] >= 1327:
+                #     breakpoint()
                 update["bulk"].append(
                     (self.replisome_trimers_idx, 3 * replisomes_to_delete.sum())
                 )

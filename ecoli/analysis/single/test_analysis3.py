@@ -5,7 +5,7 @@ import pandas as pd
 # Loading Simdata to obtain the bulk id labels
 from ecoli.library.sim_data import LoadSimData
 
-sim_data_default = "out/plasmid_in_ecoli2/parca/kb/simData.cPickle"
+sim_data_default = "out/kb/simData.cPickle"
 sim_data = LoadSimData(sim_data_default).sim_data
 
 bulk_molecule_ids = sim_data.internal_state.bulk_molecules.bulk_data[

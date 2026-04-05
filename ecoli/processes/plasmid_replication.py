@@ -175,8 +175,12 @@ class PlasmidReplication(PartitionedProcess):
         )
         # Boolean array: True if fork is at 0 (ready to replicate)
         ready_to_replicate_mask = fork_coordinates == 0
-        # Domain indices of plasmids ready to replicate
-        ready_domains = domain_index_replisome[ready_to_replicate_mask]
+
+        # At time t=1s, empty replisome attributes because we want to assemble replisome subunits
+        # TODO: See whether we can make this more generalized in initial_conditions.py
+        if states["global_time"] == 1:
+            domain_index_replisome = []
+            n_active_replisomes = 0
 
         # Get attributes of existing plasmid domains
         domain_index_existing_plasmid = attrs(states["full_plasmids"], ["domain_index"])
@@ -185,19 +189,12 @@ class PlasmidReplication(PartitionedProcess):
             domain_index_existing_plasmid, domain_index_replisome
         )
 
-        if idle_plasmid_domains.size > 0:
-            ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
-
-        # if states['global_time'] > 60:
-        #     breakpoint()
-
-        # if n_full_plasmids < 100 and len(ready_domains) > 0:
-        if len(ready_domains) > 0:
+        if len(idle_plasmid_domains) > 0:
             requests["bulk"].append(
-                (self.replisome_trimers_idx, 3 * len(ready_domains))
+                (self.replisome_trimers_idx, 3 * len(idle_plasmid_domains))
             )
             requests["bulk"].append(
-                (self.replisome_monomers_idx, 1 * len(ready_domains))
+                (self.replisome_monomers_idx, 1 * len(idle_plasmid_domains))
             )
 
         # If there are no active forks return
@@ -270,6 +267,9 @@ class PlasmidReplication(PartitionedProcess):
                 (maxFractionalReactionLimit * sequenceComposition).astype(int),
             )
         )
+        print(f"Global time: {states['global_time']}")
+        if states["global_time"] >= 1327:
+            print(f"Global time for debugging: {states['global_time']}")
 
         if self.debug:
             import os
@@ -318,21 +318,24 @@ class PlasmidReplication(PartitionedProcess):
         # Get number of existing replisomes and oriCs
         n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
         n_oriV = states["oriVs"]["_entryState"].sum()
-        # n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
+        n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
         # Get current fork coordinates and associated domain indices
         (fork_coordinates, domain_index_replisome) = attrs(
             states["plasmid_active_replisomes"], ["coordinates", "domain_index"]
         )
 
         # Boolean array: True if fork is at 0 (ready to replicate)
-        ready_to_replicate_mask = fork_coordinates == 0
+        # ready_to_replicate_mask = fork_coordinates == 0
+
+        if states["global_time"] == 1:
+            domain_index_replisome = []
+            n_active_replisomes = 0
+            # ready_to_replicate_mask = np.zeros(n_active_replisomes, dtype=bool)
 
         # Domain indices of plasmids ready to replicate
-        ready_domains = domain_index_replisome[ready_to_replicate_mask]
-
-        # If there are no origins, return immediately
-        if n_oriV == 0:
-            return update
+        # ready_domains = []
+        # if np.any(ready_to_replicate_mask):
+        #     ready_domains = domain_index_replisome[ready_to_replicate_mask]
 
         # Get attributes of existing plasmid domains
         domain_index_existing_domain, child_domains = attrs(
@@ -344,12 +347,13 @@ class PlasmidReplication(PartitionedProcess):
             domain_index_existing_plasmid, domain_index_replisome
         )
 
-        if idle_plasmid_domains.size > 0:
-            ready_domains = np.union1d(ready_domains, idle_plasmid_domains)
+        # If there are no plasmids, return immediately
+        if n_full_plasmids == 0:
+            return update
 
         initiate_replication = False
         max_new_replisomes = 0
-        if len(ready_domains) > 0:
+        if len(idle_plasmid_domains) > 0:
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
@@ -381,8 +385,11 @@ class PlasmidReplication(PartitionedProcess):
             n_new_domain = 0
             domain_index_new = []
 
-            if np.all(ready_domains != 0) and max_new_replisomes != n_active_replisomes:
-                n_new_replisome = min(len(ready_domains), max_new_replisomes)
+            if (
+                not np.array_equal(idle_plasmid_domains, [0])
+                and max_new_replisomes != 0
+            ):
+                n_new_replisome = min(len(idle_plasmid_domains), max_new_replisomes)
 
                 n_new_domain = 2 * max_new_replisomes
 
@@ -423,13 +430,11 @@ class PlasmidReplication(PartitionedProcess):
             # For plasmids, replication is unidirectional, so no left/right replichore distinction.
             right_replichore = np.full(n_new_replisome, False, dtype=bool)
 
-            candidate_domain_index_new_replisome = np.setdiff1d(
-                ready_domains, domain_index_replisome
-            )
+            # candidate_domain_index_new_replisome = np.setdiff1d(
+            #     idle_plasmid_domains, domain_index_replisome
+            # )
 
-            domain_index_new_replisome = candidate_domain_index_new_replisome[
-                :n_new_replisome
-            ]
+            domain_index_new_replisome = idle_plasmid_domains[:n_new_replisome]
 
             massDiff_protein_new_replisome = np.full(
                 n_new_replisome,
@@ -475,10 +480,10 @@ class PlasmidReplication(PartitionedProcess):
             # Decrement counts of replisome subunits
             if self.mechanistic_replisome:
                 update["bulk"].append(
-                    (self.replisome_trimers_idx, -3 * n_active_replisomes)
+                    (self.replisome_trimers_idx, -3 * n_new_replisome)
                 )
                 update["bulk"].append(
-                    (self.replisome_monomers_idx, -1 * n_active_replisomes)
+                    (self.replisome_monomers_idx, -1 * n_new_replisome)
                 )
 
         # Module 2: replication elongation
