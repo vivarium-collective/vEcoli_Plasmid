@@ -1,21 +1,24 @@
 {
-    "experiment_id": "mechanistic_chromosome_plasmid_priority_new",
+    "experiment_id": "plasmid_multiseed_noinitialrequest",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": null,
+    "sim_data_path": "out/kb/simData.cPickle",
     "generations": 1,
-    "n_init_sims": 1,
+    "n_init_sims": 10,
     "single_daughters": true,
     "emitter": "parquet",
     "emitter_arg": {
         "out_dir": "out"
     },
     "analysis_options": {
-        "single": {"mass_fraction_summary": {}},
-        "single": {"test_analysis5": {}}
+        "experiment_id": ["plasmid_multiseed_noinitialrequest"],
+        "variant": [0],
+        "sim_data_path": ["out/kb/simData.cPickle"],
+        "outdir": "out/plasmid_multiseed_noinitialrequest",
+        "multiseed": {"multiseed_plasmid": {}}
     },
     "processes": [
         "ecoli-plasmid-replication"

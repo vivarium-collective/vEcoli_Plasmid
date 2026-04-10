@@ -662,6 +662,11 @@ class PolypeptideElongation(PartitionedProcess):
         update["bulk"].append((self.monomer_idx, terminatedProteins))
         states["bulk"][self.monomer_idx] += terminatedProteins
 
+        # if states["global_time"] >= 674:
+        #     idx_in_monomers = np.where(self.monomer_idx == 6613)[0]
+        #     if len(idx_in_monomers) > 0:
+        #         print(f'terminatedProteins for bulk 6613: {terminatedProteins[idx_in_monomers]}')
+
         nTerminated = didTerminate.sum()
         nInitialized = didInitialize.sum()
 

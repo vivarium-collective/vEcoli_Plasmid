@@ -178,7 +178,7 @@ class ChromosomeReplication(PartitionedProcess):
         # building two replisomes per one origin of replication, and edit
         # access to oriC and chromosome domain attributes
         requests["bulk"] = []
-        # Trying to fix the bookkeeping issue by requesting replisome subunits in the beginning
+
         if self.criticalMassPerOriC >= 1.0:
             # the two lines below are the two original code lines
             requests["bulk"].append((self.replisome_trimers_idx, 6 * n_oriC))
@@ -256,6 +256,7 @@ class ChromosomeReplication(PartitionedProcess):
 
         initiate_replication = False
         if self.criticalMassPerOriC >= 1.0:
+            # print(f"Global time when replication initiated: {states['global_time']}")
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
@@ -349,12 +350,6 @@ class ChromosomeReplication(PartitionedProcess):
         update["listeners"]["replication_data"]["critical_initiation_mass"] = (
             self.criticalInitiationMass.asNumber(units.fg)
         )
-
-        # Trying to fix the bookkeeping issue by subtracting bound replisome subunits in the beginning
-        # print(states['global_time'])
-        # if states['global_time'] == 1:
-        #     update["bulk"].append((self.replisome_trimers_idx, -3 * n_active_replisomes))
-        #     update["bulk"].append((self.replisome_monomers_idx, -n_active_replisomes))
 
         # Module 2: replication elongation
         # If no active replisomes are present, return immediately
@@ -532,8 +527,6 @@ class ChromosomeReplication(PartitionedProcess):
             # Increment counts of replisome subunits
             if self.mechanistic_replisome:
                 # print(f"Global time when replisome terminated: {states['global_time']}")
-                # if states['global_time'] >= 1327:
-                #     breakpoint()
                 update["bulk"].append(
                     (self.replisome_trimers_idx, 3 * replisomes_to_delete.sum())
                 )

@@ -1,11 +1,11 @@
 {
-    "experiment_id": "DnaAboxes_combined_figure",
+    "experiment_id": "Debug_primase_counts2",
     "suffix_time": false,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": "out/DnaAboxes/parca/kb/simData.cPickle",
+    "sim_data_path": "out/Debug_primase_counts/parca/kb/simData.cPickle",
     "generations": 1,
     "n_init_sims": 1,
     "single_daughters": true,
@@ -14,6 +14,6 @@
         "out_dir": "out"
     },
     "analysis_options": {
-        "single": {"DnaA_analysis": {}}
+        "single": {"debug_analysis": {}}
     }
 }

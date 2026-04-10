@@ -628,7 +628,7 @@ def initialize_replication(
     )
 
     # some modifications done to include plasmids as well
-    if n_replisome != 0 or plasmid_n_replisome != 0:
+    if n_replisome != 0:
         # Update mass of replisomes if the mechanistic replisome option is set
         if mechanistic_replisome:
             replisome_trimer_subunit_masses = np.vstack(
@@ -682,36 +682,6 @@ def initialize_replication(
                 massDiff_protein=replisome_protein_mass,
             )
 
-        if plasmid_n_replisome != 0:
-            plasmid_sequences = (
-                sim_data.process.replication.plasmid_replication_sequences
-            )
-            plasmid_fork_coordinates = plasmid_replisome_state["coordinates"]
-            plasmid_sequence_elongations = np.abs(
-                np.repeat(plasmid_fork_coordinates, 2)
-            )
-
-            plasmid_mass_increase_dna = computeMassIncrease(
-                np.tile(plasmid_sequences, (plasmid_n_replisome, 1)),
-                plasmid_sequence_elongations,
-                sim_data.process.replication.replication_monomer_weights.asNumber(
-                    units.fg
-                ),
-            )
-
-            unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
-                "plasmid_active_replisome",
-                plasmid_n_replisome,
-                sim_data,
-                unique_id_rng,
-                domain_index=plasmid_replisome_state["domain_index"],
-                coordinates=plasmid_replisome_state["coordinates"],
-                right_replichore=plasmid_replisome_state["right_replichore"],
-                massDiff_DNA=plasmid_mass_increase_dna[0::2]
-                + plasmid_mass_increase_dna[1::2],
-                massDiff_protein=replisome_protein_mass,
-            )
-
         if mechanistic_replisome:
             # Remove replisome subunits from bulk molecules
             bulk_state["count"][replisome_trimer_idx] -= 3 * n_replisome
@@ -723,10 +693,10 @@ def initialize_replication(
             "active_replisome", n_replisome, sim_data, unique_id_rng
         )
 
-        # Creating a similar empty structured array for plasmid active replisomes as well.
-        unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
-            "plasmid_active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
-        )
+    # Creating a similar empty structured array for plasmid active replisomes as well.
+    unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
+        "plasmid_active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
+    )
 
     # Get coordinates of all genes, promoters and DnaA boxes
     all_gene_coordinates = sim_data.process.transcription.cistron_data[
@@ -2123,49 +2093,17 @@ def determine_plasmid_state(
     unitless_plasmid_replichore_length = plasmid_replichore_length.asNumber(units.nt)
     assert unitless_plasmid_replichore_length > 0, "replichore_length must be positive."
 
-    # Start with one plasmid molecule
-    # n_plasmids = 1
+    root_domain = np.array([0], dtype=np.int32)
+    oriV_state = {"domain_index": root_domain.copy()}
 
-    # zero replisome per initiation initially
-    n_replisomes = 1
-
-    # Three domains:
-    #   0: root domain (will split)
-    #   1: left child
-    #   2: right child
-    n_domains = 3  # no. of plasmid domains initially
-    coordinates = np.zeros(n_replisomes, dtype=np.int64)
-    domain_index = np.zeros(n_replisomes, dtype=np.int32)
-    # Replisome domain index → MUST point to root domain
-    # domain_index = np.array([domain_index_offset], dtype=np.int32)
-    right_replichore_replisome = np.zeros(n_replisomes, dtype=bool)
-
-    # Initialize child domain array for plasmid domains
-    child_domains = np.full((n_domains, 2), place_holder, dtype=np.int32)
-
-    # Assign proper children to domain 0
-    root_index = domain_index[0]
-    child_domains[0] = [
-        root_index + 1,  # left daughter
-        root_index + 2,  # right daughter
-    ]
-
-    # Domain indices
-    # domain_index_oriV = np.arange(n_domains, dtype=np.int32)  # oriV domain index
-    domain_index_oriV = np.array([1, 2], dtype=np.int32)
-    domain_index_domains = np.arange(
-        n_domains, dtype=np.int32
-    )  # plasmid domain indices
-
-    oriV_state = {"domain_index": domain_index_oriV}
     plasmid_replisome_state = {
-        "coordinates": coordinates,
-        "right_replichore": right_replichore_replisome,
-        "domain_index": domain_index,
+        "coordinates": np.array([], dtype=np.int64),
+        "right_replichore": np.array([], dtype=bool),
+        "domain_index": np.array([], dtype=np.int32),
     }
     plasmid_domain_state = {
-        "domain_index": domain_index_domains,
-        "child_domains": child_domains,
+        "domain_index": root_domain.copy(),
+        "child_domains": np.full((1, 2), place_holder, dtype=np.int32),
     }
 
     return oriV_state, plasmid_replisome_state, plasmid_domain_state

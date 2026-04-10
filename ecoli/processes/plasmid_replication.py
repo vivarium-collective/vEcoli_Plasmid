@@ -162,6 +162,12 @@ class PlasmidReplication(PartitionedProcess):
         if n_oriV == 0:
             return requests
 
+        # if states["global_time"] == 1:
+        #     return requests
+
+        # if states["global_time"] == 674:
+        #     breakpoint()
+
         # If replication should be initiated, request subunits required for
         # building one replisome per one origin of replication, and edit
         # access to oriC and plasmid domain attributes
@@ -176,14 +182,10 @@ class PlasmidReplication(PartitionedProcess):
         # Boolean array: True if fork is at 0 (ready to replicate)
         ready_to_replicate_mask = fork_coordinates == 0
 
-        # At time t=1s, empty replisome attributes because we want to assemble replisome subunits
-        # TODO: See whether we can make this more generalized in initial_conditions.py
-        if states["global_time"] == 1:
-            domain_index_replisome = []
-            n_active_replisomes = 0
-
         # Get attributes of existing plasmid domains
-        domain_index_existing_plasmid = attrs(states["full_plasmids"], ["domain_index"])
+        (domain_index_existing_plasmid,) = attrs(
+            states["full_plasmids"], ["domain_index"]
+        )
         # for newly replicated plasmids without active replisomes yet
         idle_plasmid_domains = np.setdiff1d(
             domain_index_existing_plasmid, domain_index_replisome
@@ -267,9 +269,6 @@ class PlasmidReplication(PartitionedProcess):
                 (maxFractionalReactionLimit * sequenceComposition).astype(int),
             )
         )
-        print(f"Global time: {states['global_time']}")
-        if states["global_time"] >= 1327:
-            print(f"Global time for debugging: {states['global_time']}")
 
         if self.debug:
             import os
@@ -327,11 +326,6 @@ class PlasmidReplication(PartitionedProcess):
         # Boolean array: True if fork is at 0 (ready to replicate)
         # ready_to_replicate_mask = fork_coordinates == 0
 
-        if states["global_time"] == 1:
-            domain_index_replisome = []
-            n_active_replisomes = 0
-            # ready_to_replicate_mask = np.zeros(n_active_replisomes, dtype=bool)
-
         # Domain indices of plasmids ready to replicate
         # ready_domains = []
         # if np.any(ready_to_replicate_mask):
@@ -341,7 +335,9 @@ class PlasmidReplication(PartitionedProcess):
         domain_index_existing_domain, child_domains = attrs(
             states["plasmid_domains"], ["domain_index", "child_domains"]
         )
-        domain_index_existing_plasmid = attrs(states["full_plasmids"], ["domain_index"])
+        (domain_index_existing_plasmid,) = attrs(
+            states["full_plasmids"], ["domain_index"]
+        )
         # for newly replicated plasmids without active replisomes yet
         idle_plasmid_domains = np.setdiff1d(
             domain_index_existing_plasmid, domain_index_replisome
@@ -385,27 +381,24 @@ class PlasmidReplication(PartitionedProcess):
             n_new_domain = 0
             domain_index_new = []
 
-            if (
-                not np.array_equal(idle_plasmid_domains, [0])
-                and max_new_replisomes != 0
-            ):
+            if max_new_replisomes != 0:
                 n_new_replisome = min(len(idle_plasmid_domains), max_new_replisomes)
 
-                n_new_domain = 2 * max_new_replisomes
+                n_new_domain = 2 * n_new_replisome
 
                 # Calculate the domain indexes of new domains and oriC's
                 max_domain_index = domain_index_existing_domain.max()
                 domain_index_new = np.arange(
                     max_domain_index + 1,
-                    max_domain_index + 2 * max_new_replisomes + 1,
+                    max_domain_index + 2 * n_new_replisome + 1,
                     dtype=np.int32,
                 )
 
             # Add new oriC's, and reset attributes of existing oriC's
             # All oriC's must be assigned new domain indexes
             if len(domain_index_new) > 0:
-                if n_oriV > max_new_replisomes:
-                    n_excess_orivs = n_oriV - max_new_replisomes
+                if n_oriV > n_new_replisome:
+                    n_excess_orivs = n_oriV - n_new_replisome
                     domain_index_new_oriv = np.concatenate(
                         (domain_index_existing_oriv[-n_excess_orivs:], domain_index_new)
                     )
@@ -467,8 +460,8 @@ class PlasmidReplication(PartitionedProcess):
                 # child_domains[new_parent_domains, 0] = domain_index_new
                 # Leave the second column (child_domains[:, 1]) as placeholder
                 if new_parent_domains.size > 0:
-                    if new_parent_domains.size != max_new_replisomes:
-                        new_parent_domains = new_parent_domains[:max_new_replisomes]
+                    if new_parent_domains.size != n_new_replisome:
+                        new_parent_domains = new_parent_domains[:n_new_replisome]
                     child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
 
                 existing_domains_update = {"set": {"child_domains": child_domains}}
