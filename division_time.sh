@@ -1,1 +1,0 @@
-export division_time=2528.0

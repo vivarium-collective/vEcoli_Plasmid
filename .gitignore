@@ -67,3 +67,13 @@ trace-*
 #################
 test_sherlock/
 
+# Plasmid development artifacts #
+##################################
+allocator_debug_out/
+testparca/
+/*.png
+/*.html
+test_push.txt
+division_time.sh
+ecoli/processes/*.png
+
