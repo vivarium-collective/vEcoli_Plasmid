@@ -167,6 +167,7 @@ def initialize_unique_molecules(
     ppgpp_regulation,
     trna_attenuation,
     mechanistic_replisome,
+    has_plasmid=False,
 ):
     unique_molecules = {}
 
@@ -181,6 +182,7 @@ def initialize_unique_molecules(
         cell_mass,
         mechanistic_replisome,
         unique_id_rng,
+        has_plasmid,
     )
 
     # Initialize bound transcription factors
@@ -213,7 +215,12 @@ def initialize_unique_molecules(
     )
 
     # Initializing plasmid related unique molecules
-    initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng)
+    if has_plasmid:
+        initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng)
+    else:
+        unique_molecules["full_plasmid"] = create_new_unique_molecules(
+            "full_plasmid", 0, sim_data, unique_id_rng
+        )
 
     return unique_molecules
 
@@ -524,6 +531,7 @@ def initialize_replication(
     cell_mass,
     mechanistic_replisome,
     unique_id_rng,
+    has_plasmid=False,
 ):
     """
     Initializes replication by creating an appropriate number of replication
@@ -577,34 +585,13 @@ def initialize_replication(
         replication_rate,
     )
 
-    # Generate arrays for initial replication conditions for the plasmid
-    plasmid_oriV_state, plasmid_replisome_state, plasmid_domain_state = (
-        determine_plasmid_state(
-            plasmid_replichore_length,
-            sim_data.process.replication.no_child_place_holder,
-        )
-    )
-
     n_oric = oric_state["domain_index"].size
     n_replisome = replisome_state["domain_index"].size
     n_domain = domain_state["domain_index"].size
 
-    # for plasmids
-    plasmid_n_oriV = plasmid_oriV_state["domain_index"].size
-    plasmid_n_replisome = plasmid_replisome_state["domain_index"].size
-    plasmid_n_domain = plasmid_domain_state["domain_index"].size
-
     # Add OriC molecules with the proposed attributes
     unique_molecules["oriC"] = create_new_unique_molecules(
         "oriC", n_oric, sim_data, unique_id_rng, domain_index=oric_state["domain_index"]
-    )
-    # plasmids - Adding new unique molecules with proposed attributes
-    unique_molecules["oriV"] = create_new_unique_molecules(
-        "oriV",
-        plasmid_n_oriV,
-        sim_data,
-        unique_id_rng,
-        domain_index=plasmid_oriV_state["domain_index"],
     )
 
     # Add chromosome domain molecules with the proposed attributes
@@ -617,15 +604,43 @@ def initialize_replication(
         child_domains=domain_state["child_domains"],
     )
 
-    # plasmids - Adding plasmid domain molecules with proposed attributes
-    unique_molecules["plasmid_domain"] = create_new_unique_molecules(
-        "plasmid_domain",
-        plasmid_n_domain,
-        sim_data,
-        unique_id_rng,
-        domain_index=plasmid_domain_state["domain_index"],
-        child_domains=plasmid_domain_state["child_domains"],
-    )
+    # Generate arrays for initial replication conditions for the plasmid
+    if has_plasmid:
+        plasmid_oriV_state, plasmid_replisome_state, plasmid_domain_state = (
+            determine_plasmid_state(
+                plasmid_replichore_length,
+                sim_data.process.replication.no_child_place_holder,
+            )
+        )
+        plasmid_n_oriV = plasmid_oriV_state["domain_index"].size
+        plasmid_n_replisome = plasmid_replisome_state["domain_index"].size
+        plasmid_n_domain = plasmid_domain_state["domain_index"].size
+
+        # plasmids - Adding new unique molecules with proposed attributes
+        unique_molecules["oriV"] = create_new_unique_molecules(
+            "oriV",
+            plasmid_n_oriV,
+            sim_data,
+            unique_id_rng,
+            domain_index=plasmid_oriV_state["domain_index"],
+        )
+        # plasmids - Adding plasmid domain molecules with proposed attributes
+        unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+            "plasmid_domain",
+            plasmid_n_domain,
+            sim_data,
+            unique_id_rng,
+            domain_index=plasmid_domain_state["domain_index"],
+            child_domains=plasmid_domain_state["child_domains"],
+        )
+    else:
+        plasmid_n_replisome = 0
+        unique_molecules["oriV"] = create_new_unique_molecules(
+            "oriV", 0, sim_data, unique_id_rng
+        )
+        unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+            "plasmid_domain", 0, sim_data, unique_id_rng
+        )
 
     # some modifications done to include plasmids as well
     if n_replisome != 0:

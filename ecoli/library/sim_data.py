@@ -57,6 +57,7 @@ class LoadSimData:
         aa_supply_in_charging: bool = True,
         disable_ppgpp_elongation_inhibition: bool = False,
         emit_unique: bool = False,
+        has_plasmid: bool = False,
         **kwargs,
     ):
         """
@@ -134,6 +135,12 @@ class LoadSimData:
             disable_ppgpp_elongation_inhibition: Turn off ppGpp-mediated
                 inhibition in :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`
                 when ``trna_charging`` is ``True``
+            has_plasmid: Initialize plasmid unique molecules (``full_plasmid``,
+                ``oriV``, ``plasmid_domain``) at simulation start. Must be
+                ``True`` when running with ``ecoli-plasmid-replication`` in the
+                process list. Also enables chromosome replication priority in
+                the bulk molecule allocator to protect host replication from
+                competition with uncontrolled plasmid replication.
         """
         self.seed = seed
         self.max_duration = max_duration
@@ -162,6 +169,7 @@ class LoadSimData:
         self.disable_ppgpp_elongation_inhibition = disable_ppgpp_elongation_inhibition
         self.recycle_stalled_elongation = recycle_stalled_elongation
         self.emit_unique = emit_unique
+        self.has_plasmid = has_plasmid
 
         # NEW to vivarium-ecoli: Whether to lump miscRNA with mRNAs
         # when calculating degradation
@@ -716,18 +724,21 @@ class LoadSimData:
             "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
             "dntps": self.sim_data.molecule_groups.dntps,
             "ppi": [self.sim_data.molecule_ids.ppi],
-            # plasmid-specific initiation control
-            # "initial_copy_number": 1,
-            # "rnaI": 2.31e-24, # mols
-            # "rnaII": self.sim_data.process.plasmid.replication.rnaII_synthesis_rate,
-            # "hybridization_rate": self.sim_data.process.plasmid.replication.hybridization_rate,
-            # "rna_degradation_rate": self.sim_data.process.plasmid.replication.rna_degradation_rate,
-            # "r1": self.sim_data.process.plasmid.replication.r1,  # hybridization parameter
-            # "r2": self.sim_data.process.plasmid.replication.r2,  # degradation parameter
-            # "plasmid_id": self.sim_data.molecule_ids.plasmid,
-            # "rnaI_id": self.sim_data.molecule_ids.rnaI,
-            # "rnaII_id": self.sim_data.molecule_ids.rnaII,
-            # "rnaI_II_hybrid_id": self.sim_data.molecule_ids.rnaI_II_hybrid,
+            # RNA I/II copy number control (Ataai-Shuler 1986)
+            # Rates converted from /hr to /s (divide by 3600).
+            # k_h = 84e-13 cc/molecule/hr, divided by cytoplasmic volume.
+            # Fortran code (BgLpLSTP.For, main program) uses VC = 0.7*V_cell
+            # as cytoplasmic volume (70% of total), so effective rate is
+            # 84e-13 / (0.7 * 1e-12 cc) / 3600 s/hr = 84 / (0.7 * 36000)
+            # This gives k_h_eff = 12 /mol/hr = 0.003333 /mol/s, which yields
+            # the ~23-copy steady state at 60-min doubling time.
+            "use_rna_control": True,
+            "rna_I_synthesis_rate": 63.0 / 3600,
+            "rna_I_degradation_rate": 21.0 / 3600,
+            "rna_II_synthesis_rate": 9.26 / 3600,
+            "rna_II_degradation_rate": 21.0 / 3600,
+            "hybridization_rate": 84.0
+            / (0.7 * 36000),  # uses V_cytoplasm = 0.7 * V_cell
             # random state
             "seed": self._seedFromName("PlasmidReplication"),
             "submass_indices": self.submass_indices,
@@ -1578,8 +1589,9 @@ class LoadSimData:
             "custom_priorities": {
                 "ecoli-rna-degradation": 10,
                 "ecoli-protein-degradation": 10,
-                # assigning priority to chromosome over plasmid
-                "ecoli-chromosome-replication": 5,
+                # Give chromosome replication priority over plasmid replication
+                # when plasmid replication is uncontrolled (no RNAI/II control)
+                **({"ecoli-chromosome-replication": 5} if self.has_plasmid else {}),
                 "ecoli-two-component-system": -5,
                 "ecoli-tf-binding": -10,
                 "ecoli-metabolism": -10,
@@ -1895,6 +1907,7 @@ class LoadSimData:
             self.ppgpp_regulation,
             self.trna_attenuation,
             self.mechanistic_replisome,
+            self.has_plasmid,
         )
 
         if self.trna_charging:
