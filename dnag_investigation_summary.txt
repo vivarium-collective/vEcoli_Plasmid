@@ -1,0 +1,501 @@
+================================================================================
+DnaG (DNA Primase) Expression Investigation Summary
+vEcoli model — April 2026
+================================================================================
+
+BACKGROUND
+----------
+During multigeneration simulations (plasmid branch), and without plasmids, DnaG (DNA primase,
+EG10239-MONOMER) was observed at counts of ~1 molecule/cell, causing replication
+initiation failures. DnaG requires 2 copies per oriC for replisome assembly.
+This document traces the origin of the DnaG expression problem through the
+model's data pipeline.
+
+
+--------------------------------------------------------------------------------
+1. EXPERIMENTAL PROTEIN COUNTS (what biology says)
+--------------------------------------------------------------------------------
+
+DnaG is a genuinely low-copy protein, but not as low as the simulation produces.
+
+Schmidt 2015 (schmidt2015_javier_table.tsv) — absolute protein counts per cell:
+  Glucose (minimal-like):      6 molecules/cell
+  LB (rich media):            14 molecules/cell
+  Glycerol + AA:               8 molecules/cell
+  Acetate:                     4 molecules/cell   <- lowest observed
+  Fumarate:                    9 molecules/cell
+  Glycerol:                   10 molecules/cell
+  Chemostat µ=0.5:            16 molecules/cell
+  Chemostat µ=0.12:           16 molecules/cell
+  Stationary phase:            5 molecules/cell
+  Range across all conditions: 4–19, mean ≈ 10.7
+
+Wisniewski 2014 (wisniewski2014_supp2.tsv) — 3 replicates:
+  Rep 1: 13.3,  Rep 2: 18.6,  Rep 3: 29.6
+  Mean ≈ 20.5 molecules/cell
+
+Houser 2015 (houser2015_javier_table.tsv) — time-series samples:
+  Mean ≈ 11.6,  range: 2–28 molecules/cell
+
+Cross-dataset summary:
+  Overall mean:  ~12 molecules/cell
+  Overall range:  2–30 molecules/cell
+  Simulation:    ~1 molecule/cell
+  Deficit:       ~10–12x too low
+
+
+--------------------------------------------------------------------------------
+2. THE DATA PIPELINE (how fold changes are derived and fed into the model)
+--------------------------------------------------------------------------------
+
+STEP 1 — EcoCyc regulatory topology (external, manually downloaded)
+  File: reconstruction/ecoli/scripts/nca/data/ecocyc/regulation.tsv
+  Source: EcoCyc v24.1
+  Content: Known TF→gene regulatory links with direction (+/-/NIL)
+  Role: Structural PRIOR for NCA — defines which TF-gene pairs exist and
+        whether they are activating or repressing.
+  For lexA→dnaG: EcoCyc records direction "-" (repression).
+  Note: EcoCyc is the sole source of the lexA→dnaG relationship.
+        EcoMAC does NOT discover this link; it only quantifies its magnitude.
+
+STEP 2 — EcoMAC expression compendium (external)
+  File: reconstruction/ecoli/scripts/nca/data/compendium/seq/EcoMAC.tsv
+  Source: Carrera et al. 2014, Molecular Systems Biology
+  Content: 4,189 genes × 2,198 conditions, log2 microarray expression values
+           (no row/column headers in the file itself)
+  Row index: gene_names.tsv (row index → b-number → gene symbol)
+  Column index: samples.tsv (column index → full experimental metadata)
+  dnaG is row 3442 (0-indexed: 3441)
+
+  dnaG expression statistics across all 2,198 conditions:
+    mean = 10.52 log2
+    std  =  0.63 log2
+    min  =  8.22 log2 (plain LB, no perturbation)
+    max  = 13.10 log2 (biofilm condition)
+
+  Key finding — DNA damage conditions in EcoMAC:
+    Norfloxacin (SOS-inducing, cols 325–374):  mean = 10.99 log2 (+0.47 above mean)
+    UV irradiation (col 547):                  10.45 log2 (barely above mean)
+    Norfloxacin appears in 7 of the top 20 highest dnaG conditions.
+
+  Interpretation: dnaG is upregulated in norfloxacin (SOS) conditions,
+  consistent with lexA de-repression. However, this means the NCA fold
+  change magnitude is being driven by the SOS response contrast, not by
+  natural variation in lexA activity during normal growth.
+
+STEP 3 — NCA computation (fold_changes.py)
+  Script: reconstruction/ecoli/scripts/nca/fold_changes.py
+  Method: Network Component Analysis
+    - Factorizes E ≈ A · P, where E = expression matrix (genes × conditions),
+      A = regulatory weights (genes × TFs), P = TF activity (TFs × conditions)
+    - A is sign-constrained by EcoCyc: lexA→dnaG entry is forced negative
+    - calculate_fold_changes() bins conditions into "high lexA activity" vs
+      "low lexA activity" (±1 std, minimum 10 conditions each side)
+    - FC = A[dnaG, lexA] × (mean_high_P − mean_low_P)
+    - Only entries where NCA sign agrees with EcoCyc direction are kept
+
+  Result for lexA→dnaG:
+    log2 fold change = -1.71  (i.e., 2^1.71 = 3.27x repression)
+
+  Critical caveat: The "low lexA activity" conditions are dominated by
+  SOS/DNA damage experiments (norfloxacin) where lexA is cleaved by RecA.
+  This is the full SOS de-repression signal, not gradual variation in
+  lexA binding during normal growth.
+
+STEP 4 — Flat files loaded into the model
+  reconstruction/ecoli/flat/fold_changes_nca.tsv  <- NCA output (Step 3)
+  reconstruction/ecoli/flat/fold_changes.tsv       <- manually curated literature values
+  reconstruction/ecoli/flat/condition/tf_condition.tsv  <- TF type and conditions
+
+  lexA in tf_condition.tsv:
+    TF type:            "0CS" (zero-component system)
+    Active condition:   minimal media (lexA bound, repressing)
+    Inactive condition: minimal media + {EG10533_RNA: 0} (lexA knockout)
+
+  What "0CS" means in the model (fit_sim_data_1.py:3920):
+    p_promoter_bound = min(1, TF_count / n_promoter_targets)
+    i.e., if lexA molecules exist, the promoter is treated as always bound.
+    LexA is NEVER inactivated during normal simulation — only in the artificial
+    parca fitting step is an "inactive" condition considered.
+
+  dnaG fold change entries:
+    fold_changes_nca.tsv:  lexA → dnaG  =  -1.71 log2
+    fold_changes.tsv:      lexA → dnaG  =  NOT PRESENT (not in curated set)
+
+STEP 5 — simulation_data.py merges both fold change files
+  Both fold_changes.tsv and fold_changes_nca.tsv are loaded in sequence.
+  Result stored as: sim_data.tf_to_fold_change[tf][gene] = 2^FC (linear)
+  For dnaG: sim_data.tf_to_fold_change["PC00010"]["EG10239_RNA"] = 2^-1.71 = 0.306
+
+STEP 6 — Parca fitting (fit_sim_data_1.py)
+  calculatePromoterBoundProbability():
+    For lexA (0CS): p_bound ≈ 1 always (if molecules exist)
+
+  The fitting solves a linear system G·r = k, where:
+    G = matrix of p_bound values per (RNA, TF, condition)
+    k = vector of expression targets per (RNA, condition)
+    r = solution vector containing basal_prob (alpha) and delta_prob per TF
+
+  For dnaG with lexA FC = -1.71:
+    lexA_active condition:   r_alpha + 1 × r_lexA = X        (observed basal)
+    lexA_inactive condition: r_alpha + 0 × r_lexA = 3.27 × X (lexA knockout)
+    => r_alpha = 3.27X,  r_lexA = -2.27X
+
+  At runtime: basal_prob + delta_prob × p_bound = 3.27X + (-2.27X) × 1 = X
+  In principle the fold change cancels for 0CS. In practice, large compensating
+  terms (3.27X and -2.27X) can amplify numerical errors and fitting artifacts,
+  especially for stochastically low-copy genes.
+
+  Output stored in sim_data:
+    transcription_regulation.basal_prob   — per-TU basal transcription probability
+    transcription_regulation.delta_prob   — sparse matrix of TF contributions
+
+STEP 7 — Runtime simulation
+  Each timestep: p_transcription[dnaG] = basal_prob[dnaG] + delta_prob[dnaG, lexA]
+  Since lexA is 0CS and always bound, lexA repression is always applied.
+  The SOS de-repression (lexA cleavage by RecA) never occurs — there is no
+  DNA damage response in the current model.
+
+
+--------------------------------------------------------------------------------
+3. COMPOUNDING FACTORS SUPPRESSING DnaG
+--------------------------------------------------------------------------------
+
+Three independent factors multiply to suppress DnaG protein counts:
+
+Factor 1 — lexA fold change: -1.71 log2 (3.27x transcript reduction)
+  Source: NCA on EcoMAC (fold_changes_nca.tsv)
+  Problem: Derived from SOS/DNA damage conditions (norfloxacin) where lexA is
+           fully cleaved. Represents the complete SOS de-repression contrast,
+           not the natural range of lexA activity during normal growth.
+           LexA is always active in the model (0CS), so this state is never
+           reversed at runtime. The magnitude is likely inflated.
+  Note:    This fold change is only in fold_changes_nca.tsv — it was NOT
+           included in the manually curated fold_changes.tsv, which may
+           indicate prior awareness that it is uncertain.
+
+Factor 2 — ppGpp fold change: -2.46 log2 (5.50x transcript reduction)
+  Source: Sanchez-Vazquez et al. 2019 PNAS (ppgpp_fc.tsv, "1+2+ 5 min" column)
+  Content: Genome-wide effect of ppGpp binding to both sites on RNA polymerase
+  dnaG entry: -2.46 log2 at 5 min, -2.91 log2 at 10 min after ppGpp induction
+  This is applied in the "with_aa" condition and ppGpp-regulated growth states.
+
+Factor 3 — Translation efficiency: 0.11
+  Source: Li et al. 2014 Cell, Table S4 (translation_efficiency.tsv)
+         "Quantifying Absolute Protein Synthesis Rates Reveals Principles
+          Underlying Allocation of Cellular Resources"
+  Method: Ribosome profiling (ribosome footprint density / mRNA abundance)
+  dnaG TE = 0.11 vs. dataset mean = 1.11, median = 0.93
+  Percentile: 3rd percentile out of 2,387 genes with data
+  Meaning: dnaG mRNA is translated ~10x less efficiently than the median gene
+  Note: This is a direct experimental measurement and likely trustworthy,
+        consistent with DnaG being a genuinely low-copy protein.
+
+Combined effect (rough estimate, multiplicative):
+  If baseline gives ~12 molecules (observed), applying:
+    3.27x (lexA) × any fitting artifacts → could push to ~3–4
+    + stochastic noise at low copy numbers → can reach 0–1
+  The TE is already baked into the observed counts, so it's not additive here,
+  but the inflated lexA fold change is the most likely source of the remaining
+  ~10–12x deficit between simulation (~1) and observation (~6–20).
+
+dnaG operon context:
+  Gene is part of the rpsU-dnaG-rpoD operon:
+    rpsU = 30S ribosomal protein S21 (essential, highly expressed)
+    dnaG = DNA primase (this gene)
+    rpoD = sigma70 (essential, highly expressed)
+  It is biologically implausible that this operon has bottom 3rd percentile
+  translation efficiency. The Li et al. TE measurement may be worth
+  cross-checking, though it is a direct experimental value.
+
+
+--------------------------------------------------------------------------------
+4. KEY BIOLOGICAL CONTEXT
+--------------------------------------------------------------------------------
+
+LexA biology:
+  - LexA is the master repressor of the SOS response in E. coli
+  - Under normal growth (no DNA damage): lexA is constitutively active,
+    always bound to SOS boxes, always repressing its targets
+  - Under DNA damage: RecA becomes activated as a coprotease and cleaves lexA,
+    de-repressing all SOS genes (including dnaG, recA, umuC, sulA, etc.)
+  - The WCM simulates normal growth only — no DNA damage, no RecA activation,
+    no lexA cleavage
+
+LexA in the model:
+  - Type: 0CS (zero-component system)
+  - p_bound ≈ 1 always during simulation
+  - 54 target genes in fold_changes_nca.tsv (all with negative fold changes)
+  - Active condition = inactive condition = minimal media (only difference is
+    lexA RNA set to 0 in the "inactive" case — i.e., a knockout)
+
+DnaG biology:
+  - DNA primase: synthesises RNA primers for Okazaki fragments and replication
+    initiation
+  - Required for both chromosome and plasmid replication
+  - Required count: 2 per oriC for replisome assembly
+  - Genuinely a low-copy protein (~6–20 molecules/cell across growth conditions)
+  - Being in the rpsU-dnaG-rpoD operon means its promoter drives expression of
+    two other essential, high-abundance genes — severe repression of this
+    operon would be deleterious
+
+EcoMAC and lexA/dnaG:
+  - EcoCyc provides the regulatory link (lexA represses dnaG)
+  - EcoMAC provides the magnitude (NCA estimates -1.71 log2)
+  - dnaG is elevated in norfloxacin conditions (top 20 highest expression)
+    which is consistent with SOS de-repression, confirming the regulation is real
+  - But the fold change magnitude comes from the full SOS contrast (lexA fully
+    cleaved), not from natural variation in lexA occupancy during normal growth
+
+
+--------------------------------------------------------------------------------
+5. SUMMARY OF THE PROBLEM
+--------------------------------------------------------------------------------
+
+The simulation produces ~1 DnaG/cell vs the observed ~6–20/cell across all
+experimental proteomics datasets. The most likely cause is the NCA-derived
+lexA fold change of -1.71 log2 (from fold_changes_nca.tsv), which:
+
+  1. Was computed from SOS-inducing conditions (norfloxacin) in EcoMAC, where
+     lexA is fully cleaved — representing the maximum possible de-repression,
+     not the natural regulatory range during normal growth.
+
+  2. Is only in fold_changes_nca.tsv (not in the manually curated
+     fold_changes.tsv), meaning it was not previously validated by curation.
+
+  3. Feeds into the parca fitting as large compensating terms (r_alpha = 3.27X,
+     r_lexA = -2.27X) which can amplify stochastic errors for low-copy genes.
+
+  4. Is applied permanently at runtime (lexA is always bound, 0CS) but the
+     compensating "inactive" state (lexA knockout) never occurs in simulation.
+
+  5. Compounds with an already-low translation efficiency (TE = 0.11, 3rd
+     percentile) measured by Li et al. 2014.
+
+The lexA regulation of dnaG is real (EcoCyc annotation, confirmed by EcoMAC
+expression pattern in SOS conditions). The problem is the magnitude of the
+fold change and how it was derived, not the existence of the regulatory link.
+
+  4. The fold change is applied at the CISTRON level, meaning it should apply
+     to all TUs containing dnaG. However, investigation of the actual parca
+     output reveals a deeper problem: TU00434 and TU00435 are absent from
+     sim_data entirely. The model deduplicates TUs by gene content
+     (getter_functions.py:_build_rna_sequences), and since TU00352, TU00434,
+     and TU00435 all contain the same three genes, only TU00352 (the first one
+     encountered) is retained. TU00434 and TU00435 — the lexA-independent
+     promoters — are silently dropped. This means dnaG has only ONE TU in the
+     model, and that TU carries the lexA fold change and has rna_synth_prob of
+     only 0.0000884 in the basal condition. By contrast, rpsU has a dedicated
+     single-gene TU (TU00472, synth_prob 0.0033) giving it ~38x higher
+     expression than dnaG from the shared operon TU alone. dnaG has no such
+     fallback. The deduplication logic conflates genuinely duplicate TU entries
+     (same transcript, slightly different mapped boundaries) with biologically
+     distinct alternative promoters for the same operon. This is the dominant
+     cause of the observed ~10–12x DnaG protein deficit.
+
+--------------------------------------------------------------------------------
+6. rpsUp2 — LEXA-INDEPENDENT PROMOTER (additional compounding error)
+--------------------------------------------------------------------------------
+
+The rpsU-dnaG-rpoD operon has THREE transcription units in the model, each with
+a different transcription start site (TSS) corresponding to different promoters:
+
+  TU00352   rpsU-dnaG-rpoD   TSS = 3,210,646
+  TU00434   rpsU-dnaG-rpoD   TSS = 3,210,712
+  TU00435   rpsU-dnaG-rpoD   TSS = 3,210,735
+  TU00472   rpsU only        TSS = 3,210,646
+
+LexA operator position (EcoCyc): 3,210,729 – 3,210,748 (+ strand)
+
+Mapping the operator against each TSS:
+
+  TU00352  TSS 3,210,646  operator is 83 bp DOWNSTREAM of TSS  -> NOT blocked
+  TU00434  TSS 3,210,712  operator is 17 bp DOWNSTREAM of TSS  -> NOT blocked
+  TU00435  TSS 3,210,735  operator is  6 bp UPSTREAM of TSS    -> BLOCKED
+  TU00472  TSS 3,210,646  operator is 83 bp DOWNSTREAM of TSS  -> NOT blocked
+
+For a repressor like lexA to block a promoter, the operator must overlap with
+the promoter elements (-10/-35 boxes) or the TSS. When the TSS is upstream of
+the operator, RNAP has already initiated transcription before reaching the
+operator — the promoter is constitutively active regardless of lexA.
+
+  TU00435 (~rpsUp3):  BLOCKED by lexA. Operator overlaps the -10 box (~3,210,725)
+                      and TSS (3,210,735). This is the lexA-regulated promoter.
+  TU00352 (~rpsUp1):  NOT blocked. TSS is 83 bp upstream of the operator.
+  TU00434 (~rpsUp2):  NOT blocked. TSS is 17 bp upstream of the operator.
+                      This is the "rpsUp2" promoter the user identified as
+                      lexA-independent.
+
+How the model incorrectly handles this:
+
+  The fold change pipeline applies the lexA FC at the CISTRON level (EG10239).
+  In simulation_data.py, the target maps to EG10239_RNA, and in the parca
+  (fit_sim_data_1.py:3873), cistron_id_to_rna_indexes("EG10239") returns ALL
+  THREE TUs containing dnaG. The lexA fold change of -1.71 log2 is therefore
+  applied to TU00352, TU00434, and TU00435 — including the two that are
+  constitutively active and should not be repressed by lexA at all.
+
+  In reality, only TU00435 should carry the lexA fold change.
+  TU00352 and TU00434 are lexA-independent and should be constitutively expressed.
+
+Combined effect of this error:
+  The model suppresses 2/3 of the dnaG-producing TUs that should be unaffected
+  by lexA, on top of an already-inflated fold change magnitude (derived from SOS
+  conditions). This is the most likely dominant cause of the ~10–12x DnaG
+  protein deficit observed in simulation.
+
+Also note: EcoCyc records lexA as also repressing rpsU (EG10920), and
+fold_changes_nca.tsv has "lexA" → "rpsU" = -1.89 log2. The same incorrect
+TU-level application likely affects rpsU expression as well, since TU00352,
+TU00434, and TU00472 all contain rpsU and have TSSs upstream of the operator.
+
+Additional finding — TU00434 and TU00435 are absent from sim_data entirely:
+  Checking the actual parca-built sim_data confirms that only TU00352 is
+  present in rna_data for the dnaG cistron. TU00434 and TU00435 fail
+  is_valid_molecule() because they have no sequence and no mass entry.
+
+  Root cause (getter_functions.py:_build_rna_sequences, lines 261-270):
+  The model deduplicates transcription units by their gene content. It builds
+  a gene_tuple = sorted(genes_in_TU) for each TU. If a gene_tuple has already
+  been seen, the TU is silently skipped — only its evidence codes are merged
+  into the first TU. Since TU00352, TU00434, and TU00435 all contain the same
+  three genes (EG10920/rpsU, EG10239/dnaG, EG10896/rpoD), and TU00352 appears
+  first
+  (lowest TU ID), TU00434 and TU00435 are dropped entirely.
+
+  This deduplication was designed to handle genuinely duplicate TU entries in
+  EcoCyc (the same transcript listed twice with slightly different boundaries).
+  However, it incorrectly collapses BIOLOGICALLY DISTINCT PROMOTERS for the
+  same operon. TU00352, TU00434, and TU00435 are not duplicates — they are
+  three separate transcription initiation sites (rpsUp1, rpsUp2, rpsUp3)
+  driving the same downstream genes from different promoters, only one of which
+  (TU00435) is regulated by lexA.
+
+  Consequence: dnaG has only one TU in the model (TU00352), which carries the
+  lexA fold change and has rna_synth_prob = 0.0000884 in the basal condition.
+  rpsU and rpoD both have dedicated single-gene TUs (TU00472 and TU0-14460
+  respectively) that give them much higher expression independently of TU00352.
+  dnaG has no such fallback — it is entirely dependent on TU00352.
+
+  Confirmed rna_synth_prob values in basal condition:
+    dnaG  (TU00352 only):          0.0000884
+    rpsU  (TU00472, primary TU):   0.0033321  (~38x higher than dnaG)
+    rpoD  (TU0-14460, primary TU): 0.0000995
+    recA  (TU00062, primary TU):   0.0001001
+
+  In the lexA-KO condition (PC00010__inactive):
+    dnaG: 0.000265  (3x higher — confirming lexA is suppressing TU00352)
+    rpsU (TU00472): 0.002900 (unchanged, independent of lexA)
+
+
+--------------------------------------------------------------------------------
+7. SYSTEMIC SCOPE OF THE TU-LEVEL MISAPPLICATION
+--------------------------------------------------------------------------------
+
+The dnaG/rpsU case is not an isolated error — it reflects a fundamental
+architectural limitation of how fold changes are applied in the model.
+
+The fold change pipeline applies regulation at the CISTRON level (TF → gene
+name). In simulation_data.py, each fold change target maps to a single RNA ID
+(gene_symbol_to_rna_id[gene]), and in the parca, cistron_id_to_rna_indexes()
+returns ALL transcription units containing that cistron. The fold change is then
+applied uniformly to every TU, regardless of whether that TU's promoter is
+actually accessible to the TF's binding site.
+
+In reality, a TF binding site at a specific genomic position can only block
+promoters whose TSS is downstream of (or overlapping) the operator. Any TU
+whose TSS is upstream of the binding site has already initiated transcription
+before RNAP reaches the operator — that promoter is unaffected by the TF.
+
+Scale of the problem:
+  Total genes in the model with fold changes AND multiple TUs at
+  different transcription start sites: 773 genes
+
+  For many of these, the TSS differences are small (a few bp, likely the same
+  promoter with slightly different mapped start positions) and the error is
+  minor. But for any gene where one or more TUs have TSSs genuinely upstream
+  of the TF operator — as is the case for dnaG/rpsU — the model incorrectly
+  suppresses constitutively active promoters that should be unaffected.
+
+What a correct implementation would require:
+  1. Storing the genomic position of each TF operator/binding site alongside
+     the fold change data (not currently in any flat file)
+  2. Applying fold changes at the TU level: for each TF-gene pair, determine
+     which specific TUs have TSSs downstream of the operator, and apply the
+     fold change only to those TUs
+  3. Restructuring fold_changes.tsv and fold_changes_nca.tsv to specify TU IDs
+     rather than (or in addition to) gene names
+
+This is a non-trivial architectural refactor affecting potentially hundreds of
+genes. The dnaG case is the most immediately impactful discovered so far because
+the constitutive TUs (TU00352, TU00434) represent 2/3 of dnaG's transcriptional
+output and the incorrectly applied fold change has a measurable effect on cell
+viability (replication initiation failures in multigeneration simulations).
+
+
+================================================================================
+Next steps to consider (to be discussed separately)
+================================================================================
+
+SHORT-TERM (dnaG-specific):
+- A variant (ecoli/variants/tf_tu_exemption.py) has been created and is
+  currently being run (experiment: multigen_ecoli_dnag_fix, variant 1).
+  It removes lexA's delta_prob contribution from TU00352 and absorbs it into
+  basal_prob, making TU00352 constitutively expressed. This is the best fix
+  achievable within the current parca infrastructure (see Limitation below).
+- Remove lexA→dnaG and lexA→rpsU entries from fold_changes_nca.tsv: the fold
+  change magnitude is inflated from SOS conditions, was never in the manually
+  curated fold_changes.tsv, and only TU00435 (currently absent) should carry it.
+  Removing these entries would make dnaG constitutive at the parca level,
+  without needing the post-parca variant.
+- Cross-check dnaG translation efficiency (TE=0.11, Li et al. 2014) against
+  Schmidt 2015 and other proteomics datasets for consistency.
+
+KNOWN LIMITATION — Restoring TU00434 breaks parca:
+  Modifying getter_functions.py:_build_rna_sequences to preserve TUs with
+  different start positions (alternative promoters) was attempted. It was
+  reverted because the parca solver (fitPromoterBoundProbability, ECOS) fails
+  with RuntimeError("Solver could not find optimal value") when multiple TUs
+  share the same gene content.
+
+  Root cause of the parca failure: parca assigns expression targets (the k
+  vector in the G·r = k linear system) at the gene level, then maps them to
+  TUs. When TU00352, TU00434, and TU00435 all share the same three genes, each
+  gets the same expression target. The solver then tries to satisfy this target
+  three times simultaneously within [0,1] probability constraints — the system
+  becomes overconstrained and infeasible. The parca has no mechanism to split a
+  gene's observed expression level across alternative promoters, because it has
+  only gene-level (not TU-level) expression data.
+
+  What a complete fix would require (Layer 2 — medium term):
+  - Modify build_vector_k and build_matrix_G in fit_sim_data_1.py to handle
+    co-TUs (multiple TUs sharing the same gene set) by distributing the
+    expression target among them (e.g. equally, or weighted by promoter
+    strength if data is available) rather than assigning the full target
+    to each TU independently.
+  - This would allow TU00434 to exist as a separate constitutive TU alongside
+    TU00352 and TU00435, with the total expression correctly summing to the
+    observed gene-level expression.
+  - Only then can the fold change be correctly restricted to TU00435 (the
+    lexA-regulated promoter) while TU00352 and TU00434 remain constitutive.
+
+MEDIUM-TERM (0CS TFs and TU deduplication scope):
+- Audit all 0CS TFs for the same pattern: inflated fold changes derived from
+  conditions where the TF is artificially inactivated rather than from natural
+  regulatory variation during normal growth.
+- Audit the TU deduplication logic more broadly: any operon with multiple
+  experimentally confirmed promoters (different TSS positions for the same
+  gene set) may have the same issue as dnaG. Fixing this requires the parca
+  co-TU expression splitting described above.
+
+LONG-TERM (architectural):
+- Redesign fold change application to be TU-level rather than cistron-level.
+- Store genomic positions of TF operator sites alongside fold change data.
+- For each TF-gene pair, apply the fold change only to TUs whose TSS is
+  downstream of the operator (i.e., actually blocked by the TF).
+- This affects 773 genes in the current model and is a non-trivial refactor,
+  but is necessary for correct regulatory representation.
+- For lexA and SOS genes specifically: consider replacing negative fold changes
+  with a positive (de-repression) fold change applied only in a future DNA
+  damage / SOS response condition.
+================================================================================

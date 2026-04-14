@@ -1075,7 +1075,7 @@ def run_with_plasmid():
     Runs a simulation with CLI options.
     """
     ecoli_sim = EcoliSim.from_file(
-        filepath="/Users/rashmidissasekara/Documents/code/vEcoli/configs/plasmid_in_ecoli.json"
+        filepath="/Users/rashmidissasekara/Documents/code/vEcoli/configs/plasmid_in_ecoli_controlled.json"
     )
     ecoli_sim.build_ecoli()
     ecoli_sim.run()

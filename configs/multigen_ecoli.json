@@ -1,0 +1,35 @@
+{
+    "experiment_id": "multigen_ecoli_dnag_fix",
+    "suffix_time": false,
+    "has_plasmid": false,
+    "mechanistic_replisome": true,
+    "parca_options": {
+        "cpus": 4
+    },
+    "fail_at_max_duration": true,
+    "sim_data_path": null,
+    "generations": 7,
+    "n_init_sims": 1,
+    "single_daughters": true,
+    "emitter": "parquet",
+    "emitter_arg": {
+        "out_dir": "out"
+    },
+    "variants": {
+        "tf_tu_exemption": {
+            "exemptions": {"value": [{"PC00010": ["TU00352", "TU00434"]}]}
+        }
+    },
+    "analysis_options": {
+        "experiment_id": ["multigen_ecoli_dnag_fix"],
+        "variant": [0, 1],
+        "sim_data_path": [
+            "out/multigen_ecoli_dnag_fix/parca/kb/simData.cPickle",
+            "out/multigen_ecoli_dnag_fix/parca/kb/simData.cPickle"
+        ],
+        "outdir": "out/multigen_ecoli_dnag_fix",
+        "multigeneration": {
+            "replisome_subunit_counts": {}
+        }
+    }
+}

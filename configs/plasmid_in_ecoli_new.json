@@ -1,24 +1,25 @@
 {
-    "experiment_id": "plasmid_multiseed_noinitialrequest",
+    "experiment_id": "plasmid_controlled",
     "suffix_time": false,
+    "has_plasmid": true,
     "parca_options": {
         "cpus": 4
     },
     "fail_at_max_duration": true,
-    "sim_data_path": "out/kb/simData.cPickle",
+    "sim_data_path": null,
     "generations": 1,
-    "n_init_sims": 10,
+    "n_init_sims": 1,
     "single_daughters": true,
     "emitter": "parquet",
     "emitter_arg": {
         "out_dir": "out"
     },
     "analysis_options": {
-        "experiment_id": ["plasmid_multiseed_noinitialrequest"],
+        "experiment_id": ["plasmid_controlled"],
         "variant": [0],
-        "sim_data_path": ["out/kb/simData.cPickle"],
-        "outdir": "out/plasmid_multiseed_noinitialrequest",
-        "multiseed": {"multiseed_plasmid": {}}
+        "sim_data_path": [null],
+        "outdir": "out/plasmid_controlled",
+        "single": {"test_analysis5": {}}
     },
     "processes": [
         "ecoli-plasmid-replication"

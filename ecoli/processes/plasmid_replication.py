@@ -7,15 +7,12 @@ Adapted from chromosome replication.
 Performs initiation, elongation, and termination of active plasmid molecules
 that replicate independently of the chromosome. (ColE1 - pBR322)
 
-Plasmid replication is initiated asynchronously depending on resource availability
-at individual plasmid molecules with no copy number control yet. Second, replication forks
-are elongated unidirectionally up to the maximal expected elongation rate, dNTP resource
-limitations, and template strand sequence but elongation does not take into account the
-action of topoisomerases or the enzymes in the replisome. Finally, replication forks terminate
-once they reach the end of their template strand producing fully replicated plasmid molecules
-that remain separate from the chromosome and each other.
-
-# TODO: Implement copy number control
+Replication is initiated asynchronously per plasmid copy when replisome subunits
+are available and (optionally) RNA II copy number control permits. The RNA I/II
+control mechanism (Ataai and Shuler 1986) is computed inside calculate_request
+so that the updated rna_II_ss is visible to evolve_state via the allocator cycle.
+Replication forks are elongated unidirectionally; termination produces a new full
+plasmid molecule.
 """
 
 import numpy as np
@@ -45,6 +42,7 @@ TOPOLOGY = {
     "full_plasmids": ("unique", "full_plasmid"),
     "listeners": ("listeners",),
     "environment": ("environment",),
+    "plasmid_rna_control": ("process_state", "plasmid_rna_control"),
     "timestep": ("timestep",),
 }
 topology_registry.register(NAME, TOPOLOGY)
@@ -79,6 +77,27 @@ class PlasmidReplication(PartitionedProcess):
         # random seed
         "seed": 0,
         "emit_unique": False,
+        # RNA I/II copy number control (Ataai-Shuler 1986).
+        # Computed inside calculate_request so rna_II_ss is updated before
+        # evolve_state reads it. If False, initiation is uncontrolled.
+        "use_rna_control": True,
+        # All rates from Ataai & Shuler 1986, converted from /hr to /s (divide by 3600).
+        "rna_I_synthesis_rate": 63.0 / 3600,  # alpha_I  = 63 /hr/plasmid
+        "rna_I_degradation_rate": 21.0 / 3600,  # gamma_I  = 21 /hr
+        "rna_II_synthesis_rate": 10.0 / 3600,  # K_T_RNAII = 10 /hr/plasmid (Table 1)
+        "rna_II_degradation_rate": 21.0 / 3600,  # gamma_II = 21 /hr
+        # k_h = 84e-13 cc/molecule/hr, divided by cytoplasmic volume.
+        # Fortran uses VC = 0.7*V_cell; k_h_eff = 84e-13/(0.7e-12*3600)
+        # = 84/(0.7*36000) /molecule/s  (see sim_data.py for justification)
+        "hybridization_rate": 84.0 / (0.7 * 36000),  # k_h  /molecule/s
+        "hybrid_degradation_rate": 21.0 / 3600,  # gamma_H = 21 /hr (same as RNA_I/II)
+        # Initiation criterion (Eqs 2-3, Ataai-Shuler 1986):
+        # Each plasmid fires an RNA II initiation attempt every 1/K_T_RNAII = 360 s.
+        # The fraction of RNA II transcripts surviving RNA I binding in
+        # transcription_time seconds is exp(-k_h * RNA_I * transcription_time).
+        # Of those, primer_efficiency fraction successfully initiate replication.
+        "transcription_time": 7.0,  # seconds for RNA II to reach origin
+        "primer_efficiency": 0.5,  # f: fraction of escaped RNA II forming primers
     }
 
     def __init__(self, parameters=None):
@@ -117,6 +136,19 @@ class PlasmidReplication(PartitionedProcess):
 
         self.ppi_idx = None
 
+        self.use_rna_control = self.parameters["use_rna_control"]
+        if self.use_rna_control:
+            self.alpha_I = self.parameters["rna_I_synthesis_rate"]
+            self.gamma_I = self.parameters["rna_I_degradation_rate"]
+            self.alpha_II = self.parameters["rna_II_synthesis_rate"]
+            self.gamma_II = self.parameters["rna_II_degradation_rate"]
+            self.k_h = self.parameters["hybridization_rate"]
+            self.gamma_H = self.parameters["hybrid_degradation_rate"]
+            # 1/K_T_RNAII in seconds — interval between RNA II initiation attempts
+            self.rna_II_interval = 1.0 / self.alpha_II
+            self.transcription_time = self.parameters["transcription_time"]
+            self.primer_efficiency = self.parameters["primer_efficiency"]
+
         self.debug = False
 
     def ports_schema(self):
@@ -142,6 +174,53 @@ class PlasmidReplication(PartitionedProcess):
             "full_plasmids": numpy_schema(
                 "full_plasmids", emit=self.parameters["emit_unique"]
             ),
+            "plasmid_rna_control": {
+                # RNA_I: inhibitor transcript (starts near steady state ~3 molecules)
+                "rna_I": {
+                    "_default": 3.0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+                # RNA_II: primer transcript (starts near 0)
+                "rna_II": {
+                    "_default": 0.0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+                # Hybrid: RNA_I:RNA_II complex; forms and degrades, no further interaction
+                "hybrid": {
+                    "_default": 0.0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+                # Seconds elapsed since last RNA II initiation attempt.
+                # Initialized to rna_II_interval so the first timestep fires immediately.
+                "time_since_rna_II": {
+                    "_default": 360.0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+                # Fractional accumulator for new plasmids (continuous PL in paper).
+                # Each 6-min round adds PL * f * exp(-k_h*RNA_I*7); integer part
+                # fires as initiations, fractional remainder carries over.
+                "PL_fractional": {
+                    "_default": 0.0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+                # Integer initiations fired this timestep
+                "n_rna_initiations": {
+                    "_default": 0,
+                    "_updater": "set",
+                    "_emit": True,
+                    "_divider": "set",
+                },
+            },
             "timestep": {"_default": self.parameters["time_step"]},
         }
 
@@ -155,18 +234,76 @@ class PlasmidReplication(PartitionedProcess):
                 self.replisome_monomers_subunits, states["bulk"]["id"]
             )
             self.dntps_idx = bulk_name_to_idx(self.dntps, states["bulk"]["id"])
+
         requests = {}
+
+        # RNA I/II copy number control (Ataai-Shuler 1986).
+        # Computed here so n_rna_initiations is written to process_state before
+        # evolve_state runs (Requester non-bulk returns pass through as state updates).
+        n_rna_initiations = 0
+        if self.use_rna_control:
+            n_plasmids = int(states["full_plasmids"]["_entryState"].sum())
+            rna_I = states["plasmid_rna_control"]["rna_I"]
+            rna_II = states["plasmid_rna_control"]["rna_II"]
+            hybrid = states["plasmid_rna_control"]["hybrid"]
+            time_since_rna_II = states["plasmid_rna_control"]["time_since_rna_II"]
+            PL_fractional = states["plasmid_rna_control"]["PL_fractional"]
+
+            if n_plasmids > 0:
+                # Coupled ODEs for RNA_I, RNA_II, and hybrid (Eqs 5, 6, 10):
+                # dRNA_I/dt  = K_T_RNAI*N  - k_h*RNA_I*RNA_II - k_d_RNAI*RNA_I
+                # dRNA_II/dt = K_T_RNAII*N - k_h*RNA_I*RNA_II - k_d_RNAII*RNA_II
+                # dH/dt      = k_h*RNA_I*RNA_II               - k_d_H*H
+                # Hybrid is irreversible (k_-2 << k_2) and does not further
+                # interact with free RNA_II once formed.
+                hybridization = self.k_h * rna_I * rna_II
+                d_rna_I = (
+                    self.alpha_I * n_plasmids - hybridization - self.gamma_I * rna_I
+                ) * timestep
+                d_rna_II = (
+                    self.alpha_II * n_plasmids - hybridization - self.gamma_II * rna_II
+                ) * timestep
+                d_hybrid = (hybridization - self.gamma_H * hybrid) * timestep
+
+                new_rna_I = max(0.0, rna_I + d_rna_I)
+                new_rna_II = max(0.0, rna_II + d_rna_II)
+                new_hybrid = max(0.0, hybrid + d_hybrid)
+
+                # Initiation criterion (Eq 3, Ataai-Shuler 1986):
+                # Every 1/K_T_RNAII = 360 s, each plasmid initiates one RNA II
+                # transcript. The fraction reaching the origin without binding
+                # RNA I in transcription_time seconds is exp(-k_h*RNA_I*t_tx).
+                # Of those, primer_efficiency (f=0.5) form functional primers.
+                # The paper treats PL as continuous; we accumulate the fractional
+                # expected new plasmids (PL_fractional) and fire integer initiations
+                # when the accumulator crosses 1.0, carrying the remainder forward.
+                new_time = time_since_rna_II + timestep
+                if new_time >= self.rna_II_interval:
+                    survival = np.exp(-self.k_h * rna_I * self.transcription_time)
+                    PL_fractional += n_plasmids * self.primer_efficiency * survival
+                    n_rna_initiations = int(PL_fractional)
+                    PL_fractional -= n_rna_initiations
+                    new_time -= self.rna_II_interval
+            else:
+                new_rna_I = rna_I
+                new_rna_II = rna_II
+                new_hybrid = hybrid
+                new_time = time_since_rna_II + timestep
+
+            requests["plasmid_rna_control"] = {
+                "rna_I": new_rna_I,
+                "rna_II": new_rna_II,
+                "hybrid": new_hybrid,
+                "time_since_rna_II": new_time,
+                "PL_fractional": PL_fractional,
+                "n_rna_initiations": n_rna_initiations,
+            }
+
         # Get total count of existing oriV's
         n_oriV = states["oriVs"]["_entryState"].sum()
-        # If there are no origins, return immediately
+        # If there are no origins, return immediately (rna_control already set)
         if n_oriV == 0:
             return requests
-
-        # if states["global_time"] == 1:
-        #     return requests
-
-        # if states["global_time"] == 674:
-        #     breakpoint()
 
         # If replication should be initiated, request subunits required for
         # building one replisome per one origin of replication, and edit
@@ -192,12 +329,15 @@ class PlasmidReplication(PartitionedProcess):
         )
 
         if len(idle_plasmid_domains) > 0:
-            requests["bulk"].append(
-                (self.replisome_trimers_idx, 3 * len(idle_plasmid_domains))
-            )
-            requests["bulk"].append(
-                (self.replisome_monomers_idx, 1 * len(idle_plasmid_domains))
-            )
+            if self.use_rna_control:
+                # Gate requests by free RNA II available this timestep
+                n_to_request = min(len(idle_plasmid_domains), n_rna_initiations)
+            else:
+                n_to_request = len(idle_plasmid_domains)
+
+            if n_to_request > 0:
+                requests["bulk"].append((self.replisome_trimers_idx, 3 * n_to_request))
+                requests["bulk"].append((self.replisome_monomers_idx, 1 * n_to_request))
 
         # If there are no active forks return
 
@@ -350,20 +490,30 @@ class PlasmidReplication(PartitionedProcess):
         initiate_replication = False
         max_new_replisomes = 0
         if len(idle_plasmid_domains) > 0:
-            # Get number of available replisome subunits
+            # Gate 1: replisome subunit availability
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
 
-            # Calculate the maximum no.of replisomes that can be assembled in this time step
             min_trimers = int(np.min(n_replisome_trimers))
             min_monomers = int(np.min(n_replisome_monomers))
             max_by_trimers = min_trimers // 3
             max_by_monomers = min_monomers // 1
-
             max_new_replisomes = min(max_by_trimers, max_by_monomers)
-            initiate_replication = (
-                not self.mechanistic_replisome or max_new_replisomes != 0
-            )
+
+            subunits_ok = not self.mechanistic_replisome or max_new_replisomes != 0
+
+            # Gate 2: RNA II copy number control (Ataai-Shuler 1986)
+            # n_rna_initiations was sampled in calculate_request via Poisson.
+            if self.use_rna_control:
+                n_rna_initiations = int(
+                    states["plasmid_rna_control"]["n_rna_initiations"]
+                )
+                rna_ok = n_rna_initiations > 0
+            else:
+                n_rna_initiations = len(idle_plasmid_domains)
+                rna_ok = True
+
+            initiate_replication = subunits_ok and rna_ok
 
         # If all conditions are met, initiate a round of replication on max no.of orivs as possible
         if initiate_replication:
@@ -382,7 +532,11 @@ class PlasmidReplication(PartitionedProcess):
             domain_index_new = []
 
             if max_new_replisomes != 0:
-                n_new_replisome = min(len(idle_plasmid_domains), max_new_replisomes)
+                n_new_replisome = min(
+                    len(idle_plasmid_domains),
+                    max_new_replisomes,
+                    n_rna_initiations,
+                )
 
                 n_new_domain = 2 * n_new_replisome
 

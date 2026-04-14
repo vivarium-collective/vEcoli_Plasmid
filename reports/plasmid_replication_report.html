@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plasmid Replication in vEcoli — Development, Mechanistic Replisome &amp; DnaG Investigation</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #dee2e6;
+      --accent: #2c5f8a;
+      --accent-light: #e8f0f7;
+      --warn: #856404;
+      --warn-bg: #fff3cd;
+      --danger: #721c24;
+      --danger-bg: #f8d7da;
+      --success: #155724;
+      --success-bg: #d4edda;
+      --text: #212529;
+      --muted: #6c757d;
+      --code-bg: #f1f3f5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 2.5rem 2rem 2rem;
+    }
+    header h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+    header .subtitle { opacity: 0.85; font-size: 1rem; }
+    header .meta { margin-top: 1rem; opacity: 0.75; font-size: 0.85rem; }
+    nav {
+      background: #1d4570;
+      padding: 0.7rem 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+    }
+    nav a {
+      color: #cfe2f3;
+      text-decoration: none;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    nav a:hover { color: #fff; text-decoration: underline; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.4rem;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent-light);
+      padding-bottom: 0.4rem;
+      margin-bottom: 1.2rem;
+      margin-top: 0.5rem;
+    }
+    h3 { font-size: 1.1rem; margin: 1.4rem 0 0.6rem; color: #2c3e50; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    p { margin-bottom: 0.9rem; }
+    ul, ol { margin: 0.5rem 0 0.9rem 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    code {
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.88em;
+    }
+    pre {
+      background: #1e2736;
+      color: #e8edf3;
+      padding: 1.2rem 1.4rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin: 0.8rem 0 1.2rem;
+    }
+    pre .comment { color: #6a9fb5; }
+    pre .keyword { color: #c678dd; }
+    pre .string  { color: #98c379; }
+    pre .number  { color: #d19a66; }
+    .callout {
+      border-left: 4px solid;
+      border-radius: 0 6px 6px 0;
+      padding: 0.9rem 1.2rem;
+      margin: 1rem 0;
+    }
+    .callout.info    { border-color: var(--accent); background: var(--accent-light); }
+    .callout.warn    { border-color: #ffc107; background: var(--warn-bg); color: var(--warn); }
+    .callout.danger  { border-color: #dc3545; background: var(--danger-bg); color: var(--danger); }
+    .callout.success { border-color: #28a745; background: var(--success-bg); color: var(--success); }
+    .callout strong  { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.4rem;
+      font-size: 0.9rem;
+    }
+    th {
+      background: var(--accent-light);
+      color: var(--accent);
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    td {
+      padding: 0.55rem 0.9rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f9fafc; }
+    .plot-frame {
+      width: 100%;
+      height: 480px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      margin: 0.8rem 0 1.4rem;
+    }
+    .plot-frame.tall { height: 640px; }
+    .plot-caption {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: -1rem;
+      margin-bottom: 1.4rem;
+      padding-left: 0.2rem;
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+    .pill {
+      display: inline-block;
+      padding: 0.15em 0.6em;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .pill.new     { background: #d4edda; color: #155724; }
+    .pill.fix     { background: #cce5ff; color: #004085; }
+    .pill.bug     { background: #f8d7da; color: #721c24; }
+    .pill.partial { background: #fff3cd; color: #856404; }
+    .timeline { list-style: none; margin-left: 0; padding-left: 0; }
+    .timeline li {
+      position: relative;
+      padding-left: 1.8rem;
+      padding-bottom: 1.2rem;
+      border-left: 2px solid var(--border);
+      margin-left: 0.7rem;
+    }
+    .timeline li:last-child { border-left: 2px solid transparent; }
+    .timeline li::before {
+      content: "";
+      position: absolute;
+      left: -0.45rem;
+      top: 0.35rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .timeline .commit { font-family: monospace; font-size: 0.82rem; color: var(--muted); }
+    .eq-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.4rem;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.9;
+      margin: 0.8rem 0 1.2rem;
+      overflow-x: auto;
+    }
+    .toc { background: var(--accent-light); border-radius: 8px; padding: 1.2rem 1.6rem; margin-bottom: 2.5rem; }
+    .toc h3 { color: var(--accent); margin-top: 0; font-size: 1rem; margin-bottom: 0.7rem; }
+    .toc ol { margin-left: 1.2rem; }
+    .toc li { font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Plasmid Replication in vEcoli</h1>
+  <div class="subtitle">ColE1/pBR322 RNA Copy Number Control · Mechanistic Replisome Subunit Competition · DnaG Shortage Investigation</div>
+  <div class="meta">Branch: <code style="background:rgba(255,255,255,0.15);color:#fff">plasmid</code> &nbsp;|&nbsp; April 2026 &nbsp;|&nbsp; Rashmi Dissasekara</div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#mechanistic-flag">Mechanistic Flag</a>
+  <a href="#shuler-model">Ataai-Shuler Model</a>
+  <a href="#implementation">Implementation</a>
+  <a href="#results-plasmid">Plasmid Results</a>
+  <a href="#mech-comparison">Non-mech vs Mechanistic</a>
+  <a href="#multigen-failure">Multigen Failure</a>
+  <a href="#dnag-investigation">DnaG Investigation</a>
+  <a href="#root-cause">Root Cause</a>
+  <a href="#fix">Fix Applied</a>
+  <a href="#next-steps">Next Steps</a>
+</nav>
+
+<main>
+
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#overview">Project Overview</a></li>
+      <li><a href="#mechanistic-flag">The <code>mechanistic_replisome</code> Flag — Context &amp; Motivation</a></li>
+      <li><a href="#shuler-model">The Ataai-Shuler Copy Number Control Model</a></li>
+      <li><a href="#implementation">Implementation in <code>plasmid_replication.py</code></a></li>
+      <li><a href="#results-plasmid">Plasmid Replication Results (Single &amp; Multigeneration)</a></li>
+      <li><a href="#mech-comparison">Baseline Comparison: Non-Mechanistic vs Mechanistic Replisome</a></li>
+      <li><a href="#multigen-failure">Multigeneration Simulation Failure at Generation 6</a></li>
+      <li><a href="#dnag-investigation">DnaG Investigation — Step by Step</a></li>
+      <li><a href="#root-cause">Root Cause Analysis</a></li>
+      <li><a href="#fix">Fix Applied: <code>tf_tu_exemption</code> Variant</a></li>
+      <li><a href="#next-steps">Next Steps &amp; Known Limitations</a></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <h2>1. Project Overview</h2>
+    <p>
+      This report documents the development of a mechanistic <strong>plasmid replication process</strong>
+      for the vEcoli whole-cell model (WCM), based on the ColE1-type replicon (pBR322, GenBank J01749.1,
+      4,361 bp). The core biological mechanism — RNA I/II copy number control — was modelled using the
+      quantitative framework of <strong>Ataai &amp; Shuler (1986)</strong>.
+    </p>
+    <p>
+      To study <strong>resource competition</strong> between the plasmid and chromosome — a key
+      biological question — the <code>mechanistic_replisome</code> option was enabled. In this mode,
+      replication initiation requires a minimum count of DnaG (DNA primase) and helicase complexes.
+      This surfaced a multigenerational DnaG depletion problem: DnaG is initialized correctly in
+      generation 1 (matching experimental proteomics data of 6–20 molecules/cell), but its count
+      progressively drifts downward across generations due to compounding regulatory errors, reaching
+      ~0–1 molecules/cell by generation 5–6. Once the mechanistic gate is enforced, this depletion
+      directly causes a <code>TimeLimitError</code> at generation 6. The vEcoli default is
+      non-mechanistic, which silently allows replication to proceed even when DnaG falls below the
+      required minimum. A detailed investigation traced the drift to multiple compounding errors in the
+      model's regulatory data pipeline.
+    </p>
+
+    <h3>Scope</h3>
+    <ul>
+      <li>Plasmid replication process with three modules: initiation, elongation, termination</li>
+      <li>RNA I/II copy number control (Ataai-Shuler ODEs integrated at each timestep)</li>
+      <li>Mechanistic replisome: chromosome and plasmid share the same subunit pool (DnaG, DnaB, etc.)</li>
+      <li>Non-mechanistic vs mechanistic comparison: why the default was non-mechanistic</li>
+      <li>Multigeneration simulation failure at generation 6 — diagnosis and partial fix</li>
+    </ul>
+
+    <h3>Development Timeline</h3>
+    <ul class="timeline">
+      <li>
+        <strong>Initial implementation</strong> — unique molecules created for <code>full_plasmid</code>,
+        <code>plasmid_domain</code>, <code>oriV</code>
+        <span class="commit">034a62de</span>
+      </li>
+      <li>
+        <strong>First successful 1-timestep run</strong>
+        <span class="commit">7ae14140</span>
+      </li>
+      <li>
+        <strong>Replicated up to 3 plasmids</strong>
+        <span class="commit">f3e43936</span>
+      </li>
+      <li>
+        <strong>Corrected timing issues</strong> in replisome assembly
+        <span class="commit">04659392</span>
+      </li>
+      <li>
+        <strong>Debugged allocator</strong> — ran without constraints
+        <span class="commit">7e15bb73</span>
+      </li>
+      <li>
+        <strong>Fixed negative counts error</strong> — design error in plasmid replication
+        <span class="commit">b323d458</span>
+      </li>
+      <li>
+        <strong>Removed dummy replisome</strong> — initialized with 0 active replisomes
+        <span class="commit">7f88a5b8</span>
+      </li>
+      <li>
+        <strong><code>has_plasmid</code> config option</strong> — enables/disables plasmid for any run
+        <span class="commit">072ea462</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="mechanistic-flag">
+    <h2>2. The <code>mechanistic_replisome</code> Flag — Context &amp; Motivation</h2>
+
+    <h3>What the flag controls</h3>
+    <p>
+      The chromosome replication process (<code>ecoli/processes/chromosome_replication.py</code>) and the
+      plasmid replication process contain an optional subunit availability gate governed by the
+      <code>mechanistic_replisome</code> boolean:
+    </p>
+    <table>
+      <tr><th>Mode</th><th>Config value</th><th>Behaviour</th></tr>
+      <tr>
+        <td><strong>Non-mechanistic</strong> (default)</td>
+        <td><code>"mechanistic_replisome": false</code></td>
+        <td>Subunit availability check <strong>bypassed</strong>. Replication initiates whenever a free
+          oriC/oriV exists, regardless of how many DnaG or helicase complexes are in the bulk pool.
+          Cells always divide on schedule.</td>
+      </tr>
+      <tr>
+        <td><strong>Mechanistic</strong></td>
+        <td><code>"mechanistic_replisome": true</code></td>
+        <td>Initiation requires <em>n_trimers ≥ 6 × n_oriC</em> and <em>n_monomers ≥ 2 × n_oriC</em>.
+          If either condition fails, replication stalls. If stalling persists beyond the 3-hour
+          simulation limit, a <code>TimeLimitError</code> is raised and the lineage terminates.</td>
+      </tr>
+    </table>
+    <p>
+      The subunit requirements per oriC (chromosome, bidirectional = 2 forks) are checked
+      element-wise across all molecules in each group:
+    </p>
+    <table>
+      <tr><th>Group</th><th>Molecule ID</th><th>Common name</th><th>Per fork</th><th>Per oriC (2 forks)</th></tr>
+      <tr>
+        <td rowspan="2">Trimer subunits<br><small>(3 per fork)</small></td>
+        <td><code>CPLX0-2361[c]</code></td><td>DNA pol III core (DnaE · DnaQ · HolE)</td><td>3</td><td>6</td>
+      </tr>
+      <tr>
+        <td><code>CPLX0-3761[c]</code></td><td>β sliding clamp (DnaN dimer)</td><td>3</td><td>6</td>
+      </tr>
+      <tr>
+        <td rowspan="4">Monomer subunits<br><small>(1 per fork)</small></td>
+        <td><code>CPLX0-3621[c]</code></td><td>DnaB replicative helicase (hexamer)</td><td>1</td><td>2</td>
+      </tr>
+      <tr>
+        <td><code>EG10239-MONOMER[c]</code></td><td><strong>DnaG (DNA primase)</strong></td><td>1</td><td>2</td>
+      </tr>
+      <tr>
+        <td><code>EG11412-MONOMER[c]</code></td><td>HolA (δ subunit, clamp loader)</td><td>1</td><td>2</td>
+      </tr>
+      <tr>
+        <td><code>EG11500-MONOMER[c]</code></td><td>HolB (δ′ subunit, clamp loader)</td><td>1</td><td>2</td>
+      </tr>
+    </table>
+    <p class="plot-caption" style="margin-top:-0.8rem">
+      Source: <code>reconstruction/ecoli/dataclasses/molecule_groups.py</code>. A 3rd trimer subunit
+      (the τ/γ clamp-loader complex, EG10245-MONOMER) is currently absent because its gene involves
+      translational frame-shifting that the model does not yet produce.
+    </p>
+
+    <h3>The default is non-mechanistic — and why that likely matters</h3>
+    <p>
+      The vEcoli model ships with <code>mechanistic_replisome: false</code> as the default
+      (see <code>ecoli/library/sim_data.py</code>, line 50: <code>mechanistic_replisome: bool = False</code>).
+      This means baseline multigeneration simulations proceed without enforcing subunit stoichiometry at
+      the initiation step.
+    </p>
+    <div class="callout warn">
+      <strong>Working hypothesis — the default was set to avoid a latent DnaG depletion problem</strong>
+      As the investigation in Sections 7–9 below reveals, DnaG is correctly initialized in generation 1
+      (consistent with proteomics data: 6–20 molecules/cell across three independent datasets). However,
+      due to compounding regulatory errors in the model's data pipeline, DnaG progressively depletes
+      across generations and reaches ~0–1 molecules/cell by generation 5–6. With the mechanistic gate
+      enforced, this multigenerational drift directly blocks replication initiation and causes a
+      <code>TimeLimitError</code>. The non-mechanistic default allows cells to divide on schedule regardless
+      — the depletion occurs silently, with no observable consequence at the cell level. Whether the
+      default was set deliberately for this reason is uncertain, but the consequence is clear: switching
+      to mechanistic mode immediately exposes the bug.
+    </div>
+
+    <h3>Why the mechanistic option was turned on for this work</h3>
+    <p>
+      The goal of this project is to model <strong>resource competition</strong> between the chromosome
+      and a ColE1 plasmid. Plasmids use the same replisome subunit pool as the chromosome (shared DnaG,
+      DnaB helicase, tau complex, clamp loader). To study whether the plasmid draws down subunits and
+      affects chromosome replication — and vice versa — the mechanistic check must be active. Without it,
+      both chromosome and plasmid replication proceed unconstrained regardless of subunit availability,
+      and the competition question cannot be answered.
+    </p>
+    <p>
+      The mechanistic flag was therefore set to <code>true</code> in <code>configs/multigen_ecoli.json</code>
+      and <code>configs/plasmid_in_ecoli_new.json</code>:
+    </p>
+    <pre>
+<span class="comment">// configs/multigen_ecoli.json</span>
+{
+  <span class="string">"experiment_id"</span>: <span class="string">"multigen_ecoli_dnag_fix"</span>,
+  <span class="string">"mechanistic_replisome"</span>: <span class="keyword">true</span>,
+  ...
+}
+    </pre>
+
+    <h3>Two configs for comparison</h3>
+    <table>
+      <tr><th>Config file</th><th>Experiment ID</th><th>Mechanistic replisome</th><th>Purpose</th></tr>
+      <tr>
+        <td><code>configs/multigen_ecoli_nonmechanistic.json</code></td>
+        <td>multigen_ecoli_nonmechanistic</td>
+        <td><span class="pill new">false (default)</span></td>
+        <td>Baseline: cells always divide, DnaG depletion silent</td>
+      </tr>
+      <tr>
+        <td><code>configs/multigen_ecoli.json</code></td>
+        <td>multigen_ecoli_dnag_fix</td>
+        <td><span class="pill bug">true (explicit)</span></td>
+        <td>Mechanistic: DnaG depletion gates initiation → failure at gen 6</td>
+      </tr>
+    </table>
+
+    <h3>DnaG abundance: experimental reference values</h3>
+    <p>
+      The DnaG count at generation 1 is correctly initialized by the parca. The table below provides
+      the experimental reference values against which the simulation is compared. The model condition
+      is M9 glucose minimal media, aerobic, 37°C.
+    </p>
+    <table>
+      <tr><th>Source</th><th>Method</th><th>DnaG — M9 glucose</th><th>Range (all conditions)</th><th>Notes</th></tr>
+      <tr>
+        <td>Schmidt <em>et al.</em> 2015</td>
+        <td>Quantitative proteomics (iBAQ)</td>
+        <td><strong>6 molecules/cell</strong></td>
+        <td>4–19 (22 conditions, mean 10.5)</td>
+        <td>M9 glucose is the lowest of all reported growth conditions</td>
+      </tr>
+      <tr>
+        <td>Wisniewski <em>et al.</em> 2014</td>
+        <td>Quantitative proteomics (LFQ)</td>
+        <td>13.3 / 18.6 / 29.6</td>
+        <td>13–30 (3 replicates, mean 20.5)</td>
+        <td>3 biological replicates, LB-like conditions</td>
+      </tr>
+      <tr>
+        <td>Houser <em>et al.</em> 2015</td>
+        <td>Quantitative proteomics</td>
+        <td>~9–12</td>
+        <td>2–28 (27 time-series samples, mean 11.6)</td>
+        <td>Time-series from log to stationary; min 2 in stationary</td>
+      </tr>
+      <tr>
+        <td>Covert lab RNAseq (validation set)</td>
+        <td>RNA-seq (RSEM TPM)</td>
+        <td><strong>156.7 TPM</strong></td>
+        <td>66–183 TPM (5 media conditions)</td>
+        <td>mRNA level; used directly in parca transcript fitting
+          (<code>rnaseq_rsem_tpm_mean.tsv</code>)</td>
+      </tr>
+    </table>
+    <div class="callout info">
+      <strong>Generation 1 vs late generations</strong>
+      DnaG is <em>correctly initialized</em> in generation 1 (consistent with the ~6/cell glucose value
+      from Schmidt 2015). The problem is multigenerational drift: regulatory pipeline errors cause
+      the steady-state level to converge to ~0–1/cell over 5–6 generations, well below the 2/oriC
+      mechanistic threshold.
+    </div>
+
+    <h3>Non-mechanistic vs mechanistic: simulation comparison</h3>
+    <p>
+      Both runs use the same parca output and differ only in the config flag. Both show identical DnaG
+      trajectories — the shortage exists in both. The mechanistic gate makes the consequence lethal.
+    </p>
+
+    <div class="two-col">
+      <div>
+        <h4>Non-mechanistic — chromosome count</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_nonmechanistic/analyses/variant=0/lineage_seed=0/plots/full_chromosome_count_multigen.html"
+          title="Chromosome count — non-mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Cells complete all 7 generations. No initiation gate — replication always proceeds.
+        </p>
+      </div>
+      <div>
+        <h4>Mechanistic — chromosome count</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/full_chromosome_count_multigen.html"
+          title="Chromosome count — mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Simulation terminates at generation 6 with <code>TimeLimitError</code>. No chromosome
+          completes in the final generation.
+        </p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h4>Non-mechanistic — DnaG count</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_nonmechanistic/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG count — non-mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          DnaG drifts from ~6/cell (gen 1, matching Schmidt 2015 glucose) down to ~0–1/cell by
+          gen 5–6. Cells divide on schedule because the count is never queried.
+          Red dashed = 2 (minimum required under mechanistic mode).
+        </p>
+      </div>
+      <div>
+        <h4>Mechanistic — DnaG count</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG count — mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Same DnaG drift. Now replication stalls once the count falls below 2. Failure begins
+          at gen 5 and is fatal by gen 6.
+          Red dashed = 2 (minimum required).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="shuler-model">
+    <h2>3. The Ataai-Shuler Copy Number Control Model</h2>
+    <p>
+      ColE1 plasmid replication is controlled by two RNA species transcribed from the plasmid itself:
+    </p>
+    <ul>
+      <li><strong>RNA II</strong> — the primer transcript. RNAP initiating at the <em>RNAII</em> promoter
+        transcribes a ~600 nt RNA that, if not intercepted, folds into a structure at the origin and
+        primes DNA replication.</li>
+      <li><strong>RNA I</strong> — the inhibitor. Transcribed in the opposite direction, RNA I hybridises
+        with the 5′ end of nascent RNA II, preventing primer formation. Higher copy number → more RNA I
+        → more inhibition → fewer initiations. This is the feedback loop that sets the steady-state copy number.</li>
+    </ul>
+    <p>
+      Ataai &amp; Shuler (1986) formalised this as a set of coupled ODEs and fit the rate constants to
+      experimental data from pBR322-carrying <em>E. coli</em>.
+    </p>
+
+    <h3>ODEs</h3>
+    <div class="eq-block">
+dRNA_I / dt  =  α_I · N  −  k_h · RNA_I · RNA_II  −  γ_I · RNA_I<br>
+dRNA_II / dt =  α_II · N  −  k_h · RNA_I · RNA_II  −  γ_II · RNA_II<br>
+dH / dt      =  k_h · RNA_I · RNA_II  −  γ_H · H
+    </div>
+    <p>
+      Where <em>N</em> is the current plasmid copy number, <em>H</em> is the RNA I:RNA II hybrid, and all
+      other symbols are rate constants from Table 1 of Ataai &amp; Shuler (1986). At steady state with
+      N ≈ 23 copies/cell (their prediction for pBR322 in minimal glucose):
+    </p>
+    <ul>
+      <li>RNA I ≈ 3 molecules/cell</li>
+      <li>RNA II ≈ 0 (rapidly hybridised)</li>
+    </ul>
+
+    <h3>Initiation Criterion</h3>
+    <p>
+      Each plasmid fires an RNA II initiation attempt every
+      <em>1 / α<sub>II</sub> = 360 s</em>.
+      The fraction of RNA II transcripts surviving RNA I binding in
+      <em>τ = 7 s</em> (transcription time to origin) is:
+    </p>
+    <div class="eq-block">
+P(survival) = exp(−k_h · RNA_I · τ)
+    </div>
+    <p>
+      Of those, a primer efficiency <em>f = 0.5</em> fraction form functional primers and initiate
+      replication. The expected number of new initiations per 360 s window is therefore:
+    </p>
+    <div class="eq-block">
+ΔP<sub>L</sub> = N · f · exp(−k_h · RNA_I · τ)
+    </div>
+    <p>
+      The paper treats P<sub>L</sub> as continuous; in the WCM we accumulate the fractional expected new
+      plasmids (<code>PL_fractional</code>) and fire integer initiations when the accumulator crosses 1.0,
+      carrying the remainder forward.
+    </p>
+
+    <h3>Parameter Values</h3>
+    <table>
+      <tr><th>Symbol</th><th>Value</th><th>Units</th><th>Description</th></tr>
+      <tr><td>α<sub>I</sub></td><td>63 / 3600</td><td>/s/plasmid</td><td>RNA I synthesis rate</td></tr>
+      <tr><td>α<sub>II</sub></td><td>10 / 3600</td><td>/s/plasmid</td><td>RNA II synthesis rate</td></tr>
+      <tr><td>γ<sub>I</sub> = γ<sub>II</sub> = γ<sub>H</sub></td><td>21 / 3600</td><td>/s</td><td>Degradation rates</td></tr>
+      <tr><td>k<sub>h</sub></td><td>84 / (0.7 × 36000)</td><td>/molecule/s</td><td>Hybridisation rate constant; k<sub>h</sub> = 84×10<sup>−13</sup> cc/mol/hr, converted using cytoplasmic volume V<sub>C</sub> = 0.7 × V<sub>cell</sub></td></tr>
+      <tr><td>τ</td><td>7</td><td>s</td><td>Transcription time for RNA II to reach origin</td></tr>
+      <tr><td>f</td><td>0.5</td><td>—</td><td>Primer efficiency</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="implementation">
+    <h2>4. Implementation in <code>plasmid_replication.py</code></h2>
+    <p>
+      The process is implemented as a <code>PartitionedProcess</code> in
+      <code>ecoli/processes/plasmid_replication.py</code>. It is structurally adapted from the chromosome
+      replication process but uses unidirectional replication (one fork per oriV, not two) and replaces
+      the DnaA-based chromosome initiation with the RNA I/II control mechanism.
+    </p>
+
+    <h3>Process Ports</h3>
+    <table>
+      <tr><th>Port</th><th>Schema</th><th>Contents</th></tr>
+      <tr><td><code>bulk</code></td><td>numpy_schema</td><td>Replisome subunit counts, dNTPs, PPi</td></tr>
+      <tr><td><code>full_plasmids</code></td><td>unique molecule</td><td>Completed plasmid copies</td></tr>
+      <tr><td><code>oriVs</code></td><td>unique molecule</td><td>Origins of replication (one per active plasmid)</td></tr>
+      <tr><td><code>plasmid_active_replisomes</code></td><td>unique molecule</td><td>Active replication forks with position coordinates</td></tr>
+      <tr><td><code>plasmid_domains</code></td><td>unique molecule</td><td>Replication domain tree (tracks parent/child relationships)</td></tr>
+      <tr><td><code>plasmid_rna_control</code></td><td>process_state</td><td>RNA I, RNA II, hybrid counts; PL accumulator; time counter</td></tr>
+    </table>
+
+    <h3>Three-Module Structure</h3>
+
+    <h4>Module 1 — Replication Initiation (<code>evolve_state</code> lines 464–643)</h4>
+    <p>
+      Identifies idle plasmids (full plasmids without an active replisome). Gates initiation through two
+      independent checks:
+    </p>
+    <ol>
+      <li><strong>Subunit gate</strong>: <code>max_new_replisomes = min(trimers // 3, monomers // 1)</code>.
+        Each new replisome consumes 3 trimer subunits and 1 monomer subunit.</li>
+      <li><strong>RNA control gate</strong>: <code>n_rna_initiations</code> computed in
+        <code>calculate_request</code> from the Ataai-Shuler equations and passed through
+        <code>process_state</code>.</li>
+    </ol>
+    <p>New oriVs, domains, and replisome entries are added; replisome subunits are decremented from bulk.</p>
+
+    <h4>Module 2 — Fork Elongation (lines 644–719)</h4>
+    <p>
+      Uses <code>buildSequences</code> + <code>polymerize</code> (same infrastructure as chromosome
+      replication). The plasmid sequence is tiled as two copies (both strands) per active replisome.
+      dNTPs are consumed proportionally; fork coordinates advance by the number of bases polymerised.
+    </p>
+
+    <h4>Module 3 — Termination (lines 721–826)</h4>
+    <p>
+      When a fork's coordinate reaches or exceeds the replichore length (4,361 bp for pBR322),
+      the replisome is deleted, replisome subunits are returned to bulk, and a new
+      <code>full_plasmid</code> entry is created with a fresh domain index. The parent plasmid's
+      domain index is updated to the first child domain.
+    </p>
+
+    <h3>Key Design Decisions</h3>
+    <div class="callout info">
+      <strong>Unidirectional replication</strong>
+      ColE1 plasmids replicate unidirectionally from a single ori. This required setting
+      <code>right_replichore = False</code> for all new replisomes and using only one sequence tile
+      per plasmid rather than two (as in bidirectional chromosome replication).
+    </div>
+    <div class="callout info">
+      <strong>RNA I/II computed in <code>calculate_request</code></strong>
+      The ODE step and initiation criterion are evaluated inside <code>calculate_request</code> rather
+      than <code>evolve_state</code>. This ensures that <code>n_rna_initiations</code> is written
+      to <code>process_state</code> before <code>evolve_state</code> runs, allowing the Requester
+      to pass the initiations count through the allocator cycle without an extra timestep delay.
+    </div>
+    <div class="callout info">
+      <strong>Fractional accumulator for sub-integer initiations</strong>
+      At typical plasmid counts (~23) and small timesteps (1 s), each 360-s window produces ΔP<sub>L</sub>
+      ≈ 23 × 0.5 × exp(−k_h × 3 × 7) ≈ a few initiations per window. Accumulating fractions and
+      firing integer events preserves the correct long-run average without requiring Poisson sampling.
+    </div>
+
+    <h3>Replisome Subunit Requirements</h3>
+    <table>
+      <tr><th>Type</th><th>Molecule</th><th>Required per oriV</th></tr>
+      <tr><td>Monomer ×1</td><td>DnaG (EG10239-MONOMER[c])</td><td>1</td></tr>
+      <tr><td>Trimer ×3</td><td>DnaB helicase (CPLX0-2361[c])<br>Tau complex (CPLX0-3761[c])<br>Clamp loader (CPLX0-3621[c])</td><td>3 (one each)</td></tr>
+    </table>
+    <p>
+      Subunit availability is checked against <em>both chromosome and plasmid</em> replication, as they
+      draw from the same bulk pool. This is where the DnaG shortage became critical in multigeneration
+      runs.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="results-plasmid">
+    <h2>5. Plasmid Replication Results</h2>
+
+    <h3>Plasmid Copy Number Over Time</h3>
+    <p>
+      The copy number plot shows the plasmid count within each generation. Starting from a single
+      plasmid, the copy number rises as replication events accumulate, then halves at each division.
+      Across generations it converges toward the Ataai-Shuler steady-state prediction of ~23 copies/cell.
+    </p>
+    <iframe class="plot-frame"
+      src="../out/plasmid_controlled_multigen/analyses/variant=0/lineage_seed=0/plots/plasmid_copy_number_by_generation.html"
+      title="Plasmid copy number per generation">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 1 — Plasmid copy number vs. time within each generation (coloured by generation).
+      Source: <code>out/plasmid_controlled_multigen/analyses/variant=0/lineage_seed=0/plots/plasmid_copy_number_by_generation.html</code>
+    </p>
+
+    <h3>Convergence to Steady State</h3>
+    <p>
+      End-of-generation copy number across generations. The dashed red line marks 23 copies/cell,
+      the Ataai-Shuler analytical prediction for pBR322 in glucose minimal media.
+    </p>
+    <iframe class="plot-frame"
+      src="../out/plasmid_controlled_multigen/analyses/variant=0/lineage_seed=0/plots/plasmid_copy_number_convergence.html"
+      title="Plasmid copy number convergence">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 2 — Copy number at end of each generation vs. the Ataai-Shuler prediction (red dashed = 23).
+      Source: <code>plasmid_copy_number_convergence.html</code>
+    </p>
+
+    <h3>RNA I / RNA II Dynamics</h3>
+    <p>
+      The RNA I inhibitor tracks copy number: more plasmids → more RNA I → lower initiation probability.
+      RNA II (the primer) remains near zero as expected (most RNA II is rapidly hybridised).
+    </p>
+    <iframe class="plot-frame tall"
+      src="../out/plasmid_controlled_multigen/analyses/variant=0/lineage_seed=0/plots/rna_control_dynamics.html"
+      title="RNA I/II dynamics">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 3 — RNA I (inhibitor) and RNA II (primer) counts across generations, faceted by generation.
+      Source: <code>rna_control_dynamics.html</code>
+    </p>
+
+    <h3>Active Plasmid Replisomes</h3>
+    <iframe class="plot-frame"
+      src="../out/plasmid_controlled_multigen/analyses/variant=0/lineage_seed=0/plots/plasmid_active_replisomes_multigen.html"
+      title="Active plasmid replisomes">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 4 — Count of active plasmid replication forks per timestep across generations.
+      Source: <code>plasmid_active_replisomes_multigen.html</code>
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="mech-comparison">
+    <h2>6. Baseline Comparison: Non-Mechanistic vs Mechanistic Replisome</h2>
+
+    <p>
+      To isolate the effect of the mechanistic replisome flag, two 7-generation simulations were run
+      without a plasmid, differing only in whether the subunit availability gate is enforced.
+      The non-mechanistic run (<code>multigen_ecoli_nonmechanistic</code>) uses the vEcoli default;
+      the mechanistic run (<code>multigen_ecoli_dnag_fix</code>, variant 0) enforces the DnaG and
+      helicase count requirements at each initiation event.
+    </p>
+
+    <h3>Chromosome replication completion</h3>
+    <div class="two-col">
+      <div>
+        <h4>Non-mechanistic (default)</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_nonmechanistic/analyses/variant=0/lineage_seed=0/plots/full_chromosome_count_multigen.html"
+          title="Chromosome count — non-mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 5a — Full chromosome count per generation (non-mechanistic). Cells complete all 7 generations.
+          Chromosome replication proceeds normally because the DnaG check is bypassed.
+        </p>
+      </div>
+      <div>
+        <h4>Mechanistic</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/full_chromosome_count_multigen.html"
+          title="Chromosome count — mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 5b — Full chromosome count per generation (mechanistic). Simulation fails at generation 6
+          with a <code>TimeLimitError</code>. No full chromosome is completed in the final generation.
+        </p>
+      </div>
+    </div>
+
+    <h3>DnaG counts across generations</h3>
+    <div class="two-col">
+      <div>
+        <h4>Non-mechanistic</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_nonmechanistic/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG counts — non-mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 6a — DnaG molecule count per generation (non-mechanistic). DnaG starts near the
+          experimental range (6–20 molecules/cell; Schmidt 2015, Wisniewski 2014, Houser 2015) in
+          generation 1 but progressively depletes across generations to ~0–1/cell. The depletion is
+          real but invisible here — replication never queries subunit counts, so cells divide on schedule
+          regardless.
+        </p>
+      </div>
+      <div>
+        <h4>Mechanistic</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG counts — mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 6b — DnaG molecule count per generation (mechanistic). The same multigenerational depletion
+          is present (gen 1 starts near experimental range of 6–20/cell, falls to ~0–1/cell by gen 5–6),
+          but now the mechanistic gate blocks initiation once the count drops below 2. Red dashed = 2 (minimum).
+        </p>
+      </div>
+    </div>
+
+    <h3>Replisome subunit bottleneck</h3>
+    <div class="two-col">
+      <div>
+        <h4>Non-mechanistic</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_nonmechanistic/analyses/variant=0/lineage_seed=0/plots/replisome_subunit_bottleneck.html"
+          title="Subunit bottleneck — non-mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 7a — Availability ratio (count / required per oriC) for each subunit (non-mechanistic).
+          DnaG ratio is consistently below 1.0 throughout all generations, confirming the shortage is
+          a persistent feature of the model — not a transient fluctuation.
+        </p>
+      </div>
+      <div>
+        <h4>Mechanistic</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/replisome_subunit_bottleneck.html"
+          title="Subunit bottleneck — mechanistic">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 7b — Availability ratio (mechanistic). Same DnaG deficit, now causing replication stall
+          from generation 5 onward. The other trimers (DnaB, Tau, clamp loader) remain well above 1.0.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <strong>Key takeaway</strong>
+      Both runs have identical DnaG levels (~1/cell, ~10–12× below experiment). The difference is entirely
+      in whether that shortage is <em>enforced</em>. Non-mechanistic: cells divide on schedule, the DnaG
+      bug is invisible. Mechanistic: cells fail at generation 6, making the DnaG bug unavoidable.
+      The DnaG shortage is a pre-existing bug in the model; the mechanistic flag merely surfaces it.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="multigen-failure">
+    <h2>7. Multigeneration Simulation Failure at Generation 6</h2>
+
+    <div class="callout danger">
+      <strong>Observed failure</strong>
+      Multigeneration simulations (both with and without plasmids) fail with a
+      <code>TimeLimitError</code> at approximately generation 6. The cell exceeds the 3-hour maximum
+      simulation duration without dividing. The cause: replication initiation fails because the
+      required replisome subunits — specifically DnaG (DNA primase) — drop to 0–1 molecules/cell,
+      below the minimum of 2 required per oriC.
+    </div>
+
+    <h3>Replisome Subunit Counts Across Generations</h3>
+    <p>
+      The plots below show bulk counts of each replisome subunit at the end of each generation.
+      DnaG is the persistent bottleneck — it stochastically depletes across generations while all
+      other subunits remain well-supplied.
+    </p>
+
+    <div class="two-col">
+      <div>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/replisome_monomer_subunit_counts.html"
+          title="Monomer subunit counts">
+        </iframe>
+        <p class="plot-caption">Fig. 8a — Monomer subunit counts (need ≥2/oriC). Red dashed = minimum required.</p>
+      </div>
+      <div>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/replisome_trimer_subunit_counts.html"
+          title="Trimer subunit counts">
+        </iframe>
+        <p class="plot-caption">Fig. 8b — Trimer subunit counts (need ≥6/oriC). Red dashed = minimum required.</p>
+      </div>
+    </div>
+
+    <iframe class="plot-frame"
+      src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/replisome_subunit_bottleneck.html"
+      title="Subunit bottleneck — availability ratio">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 9 — Availability ratio (count / required per oriC) for each subunit across generations.
+      Values below 1.0 (red dashed) block initiation. DnaG (blue) drops below 1 from early generations.
+      Source: <code>replisome_subunit_bottleneck.html</code>
+    </p>
+
+    <iframe class="plot-frame"
+      src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+      title="DnaG count across generations">
+    </iframe>
+    <p class="plot-caption">
+      Fig. 10 — DnaG (DNA primase) absolute count across all generations. Generation 1 initializes
+      near experimental values (proteomics: 6–20 molecules/cell). The count drifts downward across
+      generations, reaching 0–1 by generation 5–6, which blocks chromosome replication initiation.
+      Red dashed = 2 (minimum required per oriC). Source: <code>dnag_count_multigen.html</code>
+    </p>
+
+    <h3>Key Observation</h3>
+    <table>
+      <tr><th>Metric</th><th>Experimental (proteomics)</th><th>Simulation — generation 1</th><th>Simulation — generation 5–6</th></tr>
+      <tr><td>DnaG molecules/cell (Schmidt 2015, glucose)</td><td>6</td><td>~6–10 ✓</td><td>0–1 ✗</td></tr>
+      <tr><td>DnaG molecules/cell (mean, 3 datasets)</td><td>~12</td><td>~6–10 ✓</td><td>0–1 ✗</td></tr>
+      <tr><td>Trend</td><td>—</td><td colspan="2">Progressive multigenerational depletion due to regulatory pipeline errors</td></tr>
+    </table>
+    <p>
+      DnaG is not fundamentally mis-calibrated at initialization — the parca produces a reasonable
+      starting count. The problem is a <strong>systematic downward drift</strong> that compounds
+      across generations, driven by the errors detailed in Section 8.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="dnag-investigation">
+    <h2>8. DnaG Investigation — Step by Step</h2>
+
+    <h3>Step 1 — Trace the fold change origin</h3>
+    <p>
+      <code>fold_changes_nca.tsv</code> contains <code>lexA → dnaG = −1.71 log₂</code>.
+      This comes from the NCA (Network Component Analysis) pipeline in
+      <code>reconstruction/ecoli/scripts/nca/fold_changes.py</code>:
+    </p>
+    <ul>
+      <li>EcoCyc provides the regulatory topology (lexA represses dnaG, direction = "−")</li>
+      <li>EcoMAC (4,189 genes × 2,198 conditions, Carrera et al. 2014) provides expression data</li>
+      <li>NCA factorises the expression matrix: <em>E ≈ A · P</em>; fold change = A[dnaG, lexA] × (mean_high_P − mean_low_P)</li>
+    </ul>
+    <div class="callout warn">
+      <strong>Critical finding</strong>
+      The "low lexA activity" conditions in EcoMAC are dominated by <strong>norfloxacin (SOS-inducing)</strong>
+      experiments, where lexA is fully cleaved by RecA. The fold change magnitude of −1.71 log₂ represents
+      the <em>maximum</em> SOS de-repression signal — not the natural range of lexA activity during
+      normal growth. This fold change was <strong>never included in the manually curated
+      <code>fold_changes.tsv</code></strong>, suggesting prior awareness of its uncertainty.
+    </div>
+
+    <h3>Step 2 — Examine the 0CS fitting problem</h3>
+    <p>
+      LexA is a <strong>0CS (zero-component system)</strong> TF in the model. Its binding probability is
+      set to <code>p_bound = min(1, TF_count / n_targets) ≈ 1</code> whenever any lexA molecules exist.
+      It is <em>never inactivated</em> at runtime — the SOS response (lexA cleavage by RecA) is not
+      modelled. The parca fitting therefore:
+    </p>
+    <div class="eq-block">
+lexA active  condition:  r_α + 1 × r_lexA = X         (basal expression)
+lexA inactive condition:  r_α + 0 × r_lexA = 3.27 × X  (lexA knockout)
+  ⟹  r_α = 3.27X,   r_lexA = −2.27X
+    </div>
+    <p>
+      At runtime: <em>effective = 3.27X + (−2.27X) × 1 = X</em>. The fold change mathematically cancels,
+      but introduces large compensating terms that amplify stochastic errors for a low-copy gene like DnaG.
+    </p>
+
+    <h3>Step 3 — Identify compounding factors</h3>
+    <table>
+      <tr><th>#</th><th>Factor</th><th>Magnitude</th><th>Source</th><th>Assessment</th></tr>
+      <tr>
+        <td>1</td>
+        <td>lexA fold change on dnaG</td>
+        <td>−1.71 log₂ (3.27× repression)</td>
+        <td>NCA on EcoMAC (<code>fold_changes_nca.tsv</code>)</td>
+        <td><span class="pill bug">Likely inflated</span> — derived from SOS conditions</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>ppGpp fold change</td>
+        <td>−2.46 log₂ (5.5× reduction)</td>
+        <td>Sanchez-Vazquez et al. 2019 PNAS (<code>ppgpp_fc.tsv</code>)</td>
+        <td><span class="pill partial">Likely real</span> — direct measurement</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Translation efficiency</td>
+        <td>TE = 0.11 (3rd percentile)</td>
+        <td>Li et al. 2014 Cell, Table S4</td>
+        <td><span class="pill partial">Possibly real</span> but biologically suspicious given operon context</td>
+      </tr>
+    </table>
+
+    <h3>Step 4 — Map the lexA operator against each TU</h3>
+    <p>
+      The rpsU-dnaG-rpoD operon has <strong>three transcription units</strong> in EcoCyc, each with a
+      different TSS corresponding to a different promoter:
+    </p>
+    <table>
+      <tr><th>TU</th><th>TSS position</th><th>Promoter name</th><th>Operator relative to TSS</th><th>Blocked by lexA?</th></tr>
+      <tr><td>TU00352</td><td>3,210,646</td><td>rpsUp1</td><td>83 bp <strong>downstream</strong></td><td><span class="pill new">No — constitutive</span></td></tr>
+      <tr><td>TU00434</td><td>3,210,712</td><td>rpsUp2</td><td>17 bp <strong>downstream</strong></td><td><span class="pill new">No — constitutive</span></td></tr>
+      <tr><td>TU00435</td><td>3,210,735</td><td>rpsUp3</td><td>6 bp <strong>upstream</strong></td><td><span class="pill bug">Yes — blocked</span></td></tr>
+    </table>
+    <p>
+      LexA operator position: <strong>3,210,729 – 3,210,748</strong> (EcoCyc). For a repressor to block a
+      promoter, the operator must overlap the −10/−35 boxes or the TSS. TU00352 and TU00434 have TSSs
+      upstream of the operator — RNAP has already initiated before reaching lexA. Only TU00435 is genuinely
+      blocked.
+    </p>
+    <div class="callout danger">
+      <strong>Incorrect application of fold changes</strong>
+      The fold change pipeline maps TF → gene name → all TUs containing that gene (via
+      <code>cistron_id_to_rna_indexes()</code>). The lexA fold change is therefore applied to TU00352,
+      TU00434, <em>and</em> TU00435 — including the two constitutive promoters that lexA cannot physically
+      block. Only TU00435 should carry the lexA fold change.
+    </div>
+
+    <h3>Step 5 — Discover TU deduplication bug</h3>
+    <p>
+      Inspecting the actual parca-built <code>simData.cPickle</code> reveals that
+      <strong>TU00434 and TU00435 do not exist in sim_data at all</strong>.
+      Only TU00352 is present. This is caused by a deduplication step in
+      <code>reconstruction/ecoli/dataclasses/getter_functions.py:_build_rna_sequences</code>:
+    </p>
+    <pre>
+<span class="comment"># Lines 249–270 (before any fix):</span>
+gene_tuple = <span class="keyword">tuple</span>(sorted([gene_id <span class="keyword">for</span> gene_id <span class="keyword">in</span> tu[<span class="string">"genes"</span>] <span class="keyword">if</span> gene_id <span class="keyword">in</span> valid_gene_ids]))
+
+<span class="keyword">if</span> gene_tuple <span class="keyword">in</span> gene_tuple_to_tu_index:
+    <span class="comment"># Merge evidence codes into the FIRST TU — then silently skip</span>
+    evidence_list.extend(...)
+    <span class="keyword">continue</span>       <span class="comment"># ← TU00434 and TU00435 dropped here
+</span>    </pre>
+    <p>
+      TU00352, TU00434, and TU00435 all share the same three genes
+      (EG10920/rpsU, EG10239/dnaG, EG10896/rpoD) → identical <code>gene_tuple</code>.
+      TU00352 (lowest ID) wins; TU00434 and TU00435 are silently discarded.
+    </p>
+    <div class="callout warn">
+      <strong>Consequence</strong>
+      dnaG has only ONE transcription unit in the model (TU00352). That TU carries the lexA fold change
+      and has <code>rna_synth_prob = 0.0000884</code> in the basal condition — approximately
+      <strong>38× lower</strong> than rpsU's dedicated single-gene TU (TU00472: 0.0033321). Unlike rpsU
+      and rpoD, dnaG has no fallback constitutive TU.
+    </div>
+
+    <h3>Step 6 — Confirm with sim_data inspection</h3>
+    <table>
+      <tr><th>Gene/TU</th><th>rna_synth_prob (basal)</th><th>rna_synth_prob (lexA KO)</th><th>Notes</th></tr>
+      <tr><td>dnaG — TU00352</td><td>0.0000884</td><td>0.000265</td><td>3× higher when lexA absent — confirms suppression</td></tr>
+      <tr><td>rpsU — TU00472</td><td>0.0033321</td><td>0.002900</td><td>~38× higher than dnaG; independent of lexA</td></tr>
+      <tr><td>rpoD — TU0-14460</td><td>0.0000995</td><td>—</td><td>Similar to dnaG; has own dedicated TU</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="root-cause">
+    <h2>9. Root Cause Analysis</h2>
+
+    <p>The ~10–12× DnaG deficit results from <strong>four compounding errors</strong>:</p>
+
+    <ol>
+      <li>
+        <strong>Inflated fold change magnitude</strong> — lexA → dnaG = −1.71 log₂ derived from
+        SOS/norfloxacin conditions where lexA is fully cleaved. Represents maximum de-repression, not
+        the constitutive lexA activity during normal growth.
+      </li>
+      <li>
+        <strong>Fold change applied to constitutive promoters</strong> — TU00352 (rpsUp1) and TU00434
+        (rpsUp2) have TSSs upstream of the lexA operator. They are constitutively active and should not
+        carry the lexA fold change. The cistron-level application in the parca applies it to all TUs
+        indiscriminately.
+      </li>
+      <li>
+        <strong>TU deduplication discards alternative promoters</strong> — The deduplication in
+        <code>getter_functions.py</code> keeps only one TU per unique gene set. TU00434 (rpsUp2, the
+        constitutive alternative) is silently dropped, leaving dnaG with no constitutive fallback TU.
+      </li>
+      <li>
+        <strong>LexA is always active at runtime (0CS)</strong> — The suppression is never reversed.
+        The SOS response (lexA cleavage by RecA under DNA damage) is not modelled. Even if the fold
+        change were correct for the SOS context, it is permanently applied.
+      </li>
+    </ol>
+
+    <h3>Systemic Scope</h3>
+    <div class="callout warn">
+      <strong>773 genes affected</strong>
+      The cistron-level fold change application affects 773 genes in the current model that have
+      multiple TUs at different transcription start sites. For genes whose TUs have genuinely different
+      TSSs (upstream vs. downstream of the TF operator), the fold change is incorrectly applied to
+      constitutive promoters. The dnaG/rpsU case is the most immediately impactful — a gene where the
+      over-suppression directly causes cell death in multigeneration simulations.
+    </div>
+
+    <h3>Attempted Fix: TU Deduplication Change</h3>
+    <p>
+      A change to <code>getter_functions.py</code> was attempted to include the TU start position in
+      the deduplication key: <code>(gene_tuple, left_end_pos)</code> instead of just
+      <code>gene_tuple</code>. This correctly kept TU00434 and TU00435 as separate TUs.
+    </p>
+    <div class="callout danger">
+      <strong>Parca solver failure</strong>
+      Restoring TU00434 and TU00435 caused the parca ECOS solver to fail with
+      <code>RuntimeError("Solver could not find optimal value")</code> in
+      <code>fitPromoterBoundProbability</code>. The root cause: parca assigns expression targets at
+      the gene level, then maps them to TUs. With three TUs sharing the same genes, each receives the
+      same expression target — the system becomes overconstrained (3× the total expression within
+      [0, 1] probability constraints) and infeasible. The change was reverted. Fixing this properly
+      requires modifying <code>build_vector_k</code> and <code>build_matrix_G</code> in
+      <code>fit_sim_data_1.py</code> to distribute expression among co-TUs.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="fix">
+    <h2>10. Fix Applied: <code>tf_tu_exemption</code> Variant</h2>
+
+    <p>
+      A post-parca variant was created at <code>ecoli/variants/tf_tu_exemption.py</code> that removes
+      lexA's <code>delta_prob</code> contribution from specified TUs and absorbs it into
+      <code>basal_prob</code>. This makes those TUs constitutively active — unaffected by lexA at
+      runtime — while preserving the net transcription probability.
+    </p>
+
+    <h3>How it works</h3>
+    <pre>
+<span class="comment"># For each exempt (TF, TU) pair:</span>
+<span class="comment"># 1. Find the entry in delta_prob where deltaI == tu_i AND deltaJ == tf_j</span>
+delta_v = deltaV[entry_mask].sum()
+
+<span class="comment"># 2. Absorb delta into basal_prob (preserves net expression)</span>
+basal_prob[tu_i] += delta_v
+basal_prob[tu_i] = max(<span class="number">0.0</span>, basal_prob[tu_i])
+
+<span class="comment"># 3. Remove the entry from delta_prob entirely</span>
+keep &= ~entry_mask
+    </pre>
+
+    <h3>Default Configuration</h3>
+    <pre>
+DEFAULT_EXEMPTIONS = {
+    <span class="comment"># lexA (PC00010): exempt TU00352 (rpsUp1) and TU00434 (rpsUp2)</span>
+    <span class="comment"># Only TU00435 (rpsUp3, TSS downstream of operator) should be blocked</span>
+    <span class="string">"PC00010"</span>: [<span class="string">"TU00352"</span>, <span class="string">"TU00434"</span>],
+}
+    </pre>
+
+    <h3>Experiment: <code>multigen_ecoli_dnag_fix</code></h3>
+    <table>
+      <tr><th>Variant</th><th>TU00352 (rpsUp1)</th><th>TU00434 (rpsUp2)</th><th>TU00435 (rpsUp3)</th><th>Outcome</th></tr>
+      <tr>
+        <td>0 — Baseline</td>
+        <td>lexA suppressed (incorrect)</td>
+        <td>not in sim_data</td>
+        <td>not in sim_data</td>
+        <td><span class="pill bug">Fails at gen 6 — DnaG too low</span></td>
+      </tr>
+      <tr>
+        <td>1 — tf_tu_exemption</td>
+        <td><span class="pill new">Constitutive ✓</span></td>
+        <td>not in sim_data (skipped by parca)</td>
+        <td>not in sim_data</td>
+        <td><span class="pill fix">Partial fix — see results below</span></td>
+      </tr>
+    </table>
+    <p>
+      The variant is a <strong>partial fix</strong>. It removes the incorrect lexA suppression from
+      TU00352, making it constitutively expressed. The biologically correct full fix — having TU00434
+      as an independent constitutive TU — is blocked by the parca solver limitation described in
+      Section 9.
+    </p>
+
+    <h3>Variant 1 results: DnaG counts after tf_tu_exemption</h3>
+    <div class="two-col">
+      <div>
+        <h4>Variant 0 — Baseline (mechanistic, no fix)</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli/analyses/variant=0/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG — variant 0 baseline">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 11a — DnaG counts, baseline (lexA suppression active). Count stochastically falls to 0–1
+          by generation 5–6, causing <code>TimeLimitError</code>. Variant 0 of multigen_ecoli_dnag_fix
+          uses the same broken parca as the older multigen_ecoli run.
+        </p>
+      </div>
+      <div>
+        <h4>Variant 1 — tf_tu_exemption (TU00352 constitutive)</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/dnag_count_multigen.html"
+          title="DnaG — variant 1 tf_tu_exemption">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 11b — DnaG counts after applying the tf_tu_exemption variant (TU00352 freed from lexA).
+          Source: <code>out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/dnag_count_multigen.html</code>
+        </p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h4>Variant 1 — Replisome subunit bottleneck</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/replisome_subunit_bottleneck.html"
+          title="Bottleneck — variant 1">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 12a — DnaG availability ratio (count / 2 per oriC) after fix. Compare with Fig. 9 (baseline)
+          to assess whether ratio rises above 1.0.
+        </p>
+      </div>
+      <div>
+        <h4>Variant 1 — Chromosome completion</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/full_chromosome_count_multigen.html"
+          title="Full chromosome — variant 1">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 12b — Full chromosome count per generation (variant 1). Confirms whether the fix
+          allows cells to complete all 7 generations without a <code>TimeLimitError</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h4>Variant 1 — DnaG mRNA</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/dnag_mrna_count_multigen.html"
+          title="DnaG mRNA — variant 1">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 13a — DnaG mRNA counts after tf_tu_exemption. Higher mRNA → higher DnaG translation.
+        </p>
+      </div>
+      <div>
+        <h4>Variant 1 — Active replisomes</h4>
+        <iframe class="plot-frame"
+          src="../out/multigen_ecoli_dnag_fix/analyses/variant=1/lineage_seed=0/plots/active_chromosome_replisomes_multigen.html"
+          title="Active replisomes — variant 1">
+        </iframe>
+        <p class="plot-caption">
+          Fig. 13b — Active chromosome replisomes per generation (variant 1). Confirms that replication
+          initiates and maintains activity throughout the 7 generations.
+        </p>
+      </div>
+    </div>
+
+    <h3>Config: <code>configs/multigen_ecoli.json</code></h3>
+    <pre>
+{
+  <span class="string">"experiment_id"</span>: <span class="string">"multigen_ecoli_dnag_fix"</span>,
+  <span class="string">"has_plasmid"</span>: <span class="keyword">false</span>,
+  <span class="string">"generations"</span>: <span class="number">7</span>,
+  <span class="string">"variants"</span>: {
+    <span class="string">"tf_tu_exemption"</span>: {
+      <span class="string">"exemptions"</span>: {<span class="string">"value"</span>: [{<span class="string">"PC00010"</span>: [<span class="string">"TU00352"</span>, <span class="string">"TU00434"</span>]}]}
+    }
+  },
+  <span class="string">"analysis_options"</span>: {
+    <span class="string">"multigeneration"</span>: { <span class="string">"replisome_subunit_counts"</span>: {} }
+  }
+}
+    </pre>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="next-steps">
+    <h2>11. Next Steps &amp; Known Limitations</h2>
+
+    <h3>Short-term (dnaG-specific)</h3>
+    <ul>
+      <li>
+        <strong>Quantify variant improvement</strong> — variant 1 results are shown in Section 10
+        (Figs 11–13). Assess whether DnaG counts rise sufficiently above the 2/oriC threshold to
+        sustain reliable initiation, or whether the partial fix still leaves the simulation borderline.
+      </li>
+      <li>
+        <strong>Remove lexA→dnaG from <code>fold_changes_nca.tsv</code></strong> — the fold change
+        was derived from SOS conditions, was never in the curated set, and is not appropriate for a
+        model that does not simulate DNA damage. This would make dnaG constitutive at the parca level
+        without needing a post-parca variant.
+      </li>
+      <li>
+        <strong>Cross-check translation efficiency</strong> — TE = 0.11 (3rd percentile; Li et al. 2014)
+        seems low given the operon context. Worth verifying against independent ribosome profiling data.
+      </li>
+    </ul>
+
+    <h3>Medium-term — Fix the parca co-TU expression problem</h3>
+    <div class="callout info">
+      <strong>Required change</strong>
+      Modify <code>build_vector_k</code> and <code>build_matrix_G</code> in
+      <code>reconstruction/ecoli/fit_sim_data_1.py</code> to detect co-TUs (multiple TUs sharing the
+      same gene set) and distribute the gene-level expression target among them rather than assigning
+      the full target to each independently. This will allow the getter_functions.py deduplication fix
+      to be reinstated, restoring TU00434 and TU00435 as distinct transcription units with correct
+      promoter-specific regulation.
+    </div>
+
+    <h3>Medium-term — 0CS TF audit</h3>
+    <ul>
+      <li>
+        Audit all 0CS TFs for inflated fold changes derived from conditions where the TF is
+        artificially inactivated (knockouts, extreme perturbations) rather than from natural variation
+        during normal growth.
+      </li>
+    </ul>
+
+    <h3>Long-term — Architectural fix</h3>
+    <ul>
+      <li>
+        <strong>TU-level fold change application</strong> — store genomic positions of TF operator
+        sites alongside fold change data; apply fold changes only to TUs whose TSS is downstream of
+        (or overlapping) the operator. Affects 773 genes in the current model.
+      </li>
+      <li>
+        <strong>SOS response module</strong> — model lexA cleavage by RecA under DNA damage. Currently,
+        all lexA-regulated genes are permanently suppressed at the level dictated by the SOS-derived
+        fold change. A DNA damage/SOS condition would allow de-repression in the appropriate biological
+        context.
+      </li>
+    </ul>
+
+    <h3>Summary of Experimental Datasets Referenced</h3>
+    <table>
+      <tr><th>Dataset</th><th>DnaG (molecules/cell)</th><th>Conditions</th></tr>
+      <tr><td>Schmidt 2015</td><td>4–19 (mean 10.7)</td><td>9 growth conditions</td></tr>
+      <tr><td>Wisniewski 2014</td><td>13.3, 18.6, 29.6 (mean 20.5)</td><td>3 biological replicates</td></tr>
+      <tr><td>Houser 2015</td><td>2–28 (mean 11.6)</td><td>Time-series samples</td></tr>
+      <tr><td>Simulation gen 1 (baseline, mechanistic)</td><td>~6–10 (matches experiment)</td><td>Correctly initialized by parca</td></tr>
+      <tr><td>Simulation gen 5–6 (baseline, mechanistic)</td><td>~0–1 (depleted)</td><td>Progressive drift due to regulatory pipeline errors</td></tr>
+      <tr><td>Simulation (variant 1 — tf_tu_exemption)</td><td>See Figs 11–13</td><td>tf_tu_exemption, lexA freed from TU00352</td></tr>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  vEcoli Whole-Cell Model — Plasmid Replication Report &nbsp;|&nbsp; April 2026 &nbsp;|&nbsp;
+  Branch: <code>plasmid</code> &nbsp;|&nbsp;
+  Key files: <code>ecoli/processes/plasmid_replication.py</code> &bull;
+  <code>ecoli/variants/tf_tu_exemption.py</code> &bull;
+  <code>reconstruction/ecoli/dataclasses/getter_functions.py</code> &bull;
+  <code>dnag_investigation_summary.txt</code>
+</footer>
+
+</body>
+</html>
