@@ -1,0 +1,178 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ecoli.analysis.single.test_analysis &mdash; Vivarium E. coli 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vivarium E. coli
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../stores.html">Stores</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../processes.html">Processes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composites.html">Composites</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows.html">Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../data_ingestion.html">Experimental Data Ingestion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../output.html">Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../hpc.html">HPC Clusters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../gcloud.html">Google Cloud</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ci.html">Continuous Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pycharm.html">PyCharm Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../diffs.html">Model Differences From wcEcoli</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vivarium E. coli</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">ecoli.analysis.single.test_analysis</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for ecoli.analysis.single.test_analysis</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">duckdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckDBPyConnection</span>
+
+
+<span class="n">COLORS_256</span> <span class="o">=</span> <span class="p">[</span>  <span class="c1"># From colorbrewer2.org, qualitative 8-class set 1</span>
+    <span class="p">[</span><span class="mi">228</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">55</span><span class="p">,</span> <span class="mi">126</span><span class="p">,</span> <span class="mi">184</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">175</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">152</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">163</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">127</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">51</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">86</span><span class="p">,</span> <span class="mi">40</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">247</span><span class="p">,</span> <span class="mi">129</span><span class="p">,</span> <span class="mi">191</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">%02x%02x%02x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">color</span> <span class="ow">in</span> <span class="n">COLORS_256</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="plot">
+<a class="viewcode-back" href="../../../../reference/api/ecoli/ecoli.analysis.single.test_analysis.html#ecoli.analysis.single.test_analysis.plot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">DuckDBPyConnection</span><span class="p">,</span>
+    <span class="n">history_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">success_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sim_data_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+    <span class="n">validation_data_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">outdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">variant_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">variant_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    SELECT * FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    ORDER BY time ASC;</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="n">output_df</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># bulk_matrix = np.stack(output_df[&quot;bulk&quot;].values).astype(int)</span>
+    <span class="c1"># np.savetxt(os.path.join(outdir, &quot;bulk_matrix.txt&quot;), bulk_matrix)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;output_df_columns.txt&quot;</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span></div>
+
+
+    <span class="c1"># with open(os.path.join(outdir, &quot;history_sql.txt&quot;), &quot;w&quot;) as f:</span>
+    <span class="c1"># f.write(history_sql)</span>
+    <span class="c1">#</span>
+    <span class="c1">#</span>
+    <span class="c1"># query_dict = {</span>
+    <span class="c1">#     &quot;experiment_id&quot;: &quot;plasmidtest&quot;,</span>
+    <span class="c1">#     &quot;variant&quot;: 0,</span>
+    <span class="c1">#     &quot;lineage_seed&quot;: 0,</span>
+    <span class="c1">#     &quot;generation&quot;: 1</span>
+    <span class="c1"># }</span>
+    <span class="c1"># query = f&#39;&#39;&#39;</span>
+    <span class="c1"># SELECT *,time FROM read_parquet(&quot;out/{query_dict[&quot;experiment_id&quot;]}/history/*/*/*/*/*/*.pq&quot;, hive_partitioning=true)</span>
+    <span class="c1"># WHERE variant={query_dict[&#39;variant&#39;]}</span>
+    <span class="c1"># AND lineage_seed={query_dict[&#39;lineage_seed&#39;]}</span>
+    <span class="c1"># AND generation={query_dict[&#39;generation&#39;]}</span>
+    <span class="c1"># ORDER BY time</span>
+    <span class="c1"># &#39;&#39;&#39;</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, The Vivarium E. coli Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

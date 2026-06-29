@@ -1,0 +1,493 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ecoli.analysis.single.test_analysis4 &mdash; Vivarium E. coli 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vivarium E. coli
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../stores.html">Stores</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../processes.html">Processes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composites.html">Composites</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows.html">Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../data_ingestion.html">Experimental Data Ingestion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../output.html">Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../hpc.html">HPC Clusters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../gcloud.html">Google Cloud</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ci.html">Continuous Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pycharm.html">PyCharm Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../diffs.html">Model Differences From wcEcoli</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vivarium E. coli</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">ecoli.analysis.single.test_analysis4</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for ecoli.analysis.single.test_analysis4</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">duckdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckDBPyConnection</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">altair</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">alt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">N_A</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vivarium.library.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+
+
+<span class="n">COLORS_256</span> <span class="o">=</span> <span class="p">[</span>  <span class="c1"># From colorbrewer2.org, qualitative 8-class set 1</span>
+    <span class="p">[</span><span class="mi">228</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">55</span><span class="p">,</span> <span class="mi">126</span><span class="p">,</span> <span class="mi">184</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">175</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">152</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">163</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">127</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">51</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">86</span><span class="p">,</span> <span class="mi">40</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">247</span><span class="p">,</span> <span class="mi">129</span><span class="p">,</span> <span class="mi">191</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">%02x%02x%02x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">color</span> <span class="ow">in</span> <span class="n">COLORS_256</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="plot">
+<a class="viewcode-back" href="../../../../reference/api/ecoli/ecoli.analysis.single.test_analysis4.html#ecoli.analysis.single.test_analysis4.plot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">DuckDBPyConnection</span><span class="p">,</span>
+    <span class="n">history_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">success_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sim_data_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+    <span class="n">validation_data_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">outdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">variant_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">variant_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    SELECT time,bulk FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    ORDER BY time ASC;</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="n">output_df</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="n">time_minutes</span> <span class="o">=</span> <span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span>
+    <span class="n">bulk_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;bulk&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">bulk_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">bulk_matrix</span><span class="p">)</span>
+    <span class="n">bulk_df</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="n">time_minutes</span><span class="p">)</span>
+
+    <span class="c1"># dntps</span>
+    <span class="n">dntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6211</span><span class="p">,</span> <span class="mi">6222</span><span class="p">,</span> <span class="mi">6299</span><span class="p">,</span> <span class="mi">12449</span><span class="p">]</span>
+    <span class="n">selected_dntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dntp_cols</span><span class="p">]</span>
+    <span class="n">dntp_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[</span><span class="n">selected_dntp_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">dntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="s2">&quot;DATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DCTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DGTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;TTP (C)&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Add total dNTPs column</span>
+    <span class="n">dntp_df</span><span class="p">[</span><span class="s2">&quot;Total dNTPs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dntp_df</span><span class="p">[</span>
+        <span class="p">[</span><span class="s2">&quot;DATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DCTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DGTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;TTP (C)&quot;</span><span class="p">]</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">query2</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                        SELECT time, listeners__mass__volume</span>
+<span class="s2">                        FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">                        ORDER BY time ASC</span>
+<span class="s2">                        &quot;&quot;&quot;</span>
+
+    <span class="n">output_df2</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query2</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+
+    <span class="c1"># 2. Add volume to dNTP dataframe</span>
+    <span class="n">dntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;listeners__mass__volume&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Computing concentration</span>
+    <span class="n">AVOGADRO</span> <span class="o">=</span> <span class="n">N_A</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">mol</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;DATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DCTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DGTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;TTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;Total dNTPs&quot;</span><span class="p">]:</span>
+        <span class="n">mols</span> <span class="o">=</span> <span class="n">dntp_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">AVOGADRO</span>
+        <span class="n">volume_fl</span> <span class="o">=</span> <span class="n">dntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">fL</span>
+        <span class="n">conc</span> <span class="o">=</span> <span class="p">(</span><span class="n">mols</span> <span class="o">/</span> <span class="n">volume_fl</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">micromolar</span><span class="p">)</span>
+        <span class="n">new_col_name</span> <span class="o">=</span> <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot; (µM)&quot;</span>
+        <span class="n">dntp_df</span><span class="p">[</span><span class="n">new_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conc</span><span class="o">.</span><span class="n">magnitude</span>
+
+    <span class="c1"># Columns with concentration values ending with &quot; (µM)&quot;</span>
+    <span class="n">conc_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">dntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; (µM)&quot;</span><span class="p">)]</span>
+
+    <span class="n">plot_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">dntp_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">conc_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;dNTP&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Concentration (µM):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;dNTP:N&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;dNTP&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;dNTP Concentrations Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">dntp_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;dntp.csv&quot;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">chart</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;dNTP_Conc.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># polymerized dntps</span>
+    <span class="n">polymerized_dntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">16008</span><span class="p">,</span> <span class="mi">16017</span><span class="p">,</span> <span class="mi">16026</span><span class="p">,</span> <span class="mi">16188</span><span class="p">]</span>
+    <span class="n">selected_polymerized_dntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">polymerized_dntp_cols</span>
+    <span class="p">]</span>
+    <span class="n">polymerized_dntp_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[</span><span class="n">selected_polymerized_dntp_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">polymerized_dntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_DATP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_DCTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_DGTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_TTP (C)&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Add total dNTPs column</span>
+    <span class="n">polymerized_dntp_df</span><span class="p">[</span><span class="s2">&quot;polymerized_Total dNTPs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">polymerized_dntp_df</span><span class="p">[</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;polymerized_DATP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_DCTP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_DGTP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_TTP (C)&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># 2. Add volume to polymerized_dNTP dataframe</span>
+    <span class="n">polymerized_dntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;listeners__mass__volume&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Computing concentration</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;polymerized_DATP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_DCTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_DGTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_TTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_Total dNTPs&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">mols</span> <span class="o">=</span> <span class="n">polymerized_dntp_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">AVOGADRO</span>
+        <span class="n">volume_fl</span> <span class="o">=</span> <span class="n">polymerized_dntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">fL</span>
+        <span class="n">conc</span> <span class="o">=</span> <span class="p">(</span><span class="n">mols</span> <span class="o">/</span> <span class="n">volume_fl</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">micromolar</span><span class="p">)</span>
+        <span class="n">new_col_name</span> <span class="o">=</span> <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot; (µM)&quot;</span>
+        <span class="n">polymerized_dntp_df</span><span class="p">[</span><span class="n">new_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conc</span><span class="o">.</span><span class="n">magnitude</span>
+
+    <span class="c1"># Columns with concentration values ending with &quot; (µM)&quot;</span>
+    <span class="n">polymerized_conc_cols</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">polymerized_dntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; (µM)&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="n">plot_df2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">polymerized_dntp_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">polymerized_conc_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;polymerized_dNTP&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_polymerized_dntp</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df2</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Concentration (µM):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;polymerized_dNTP:N&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;polymerized_dNTP&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Polymerized dNTP Concentrations Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">polymerized_dntp_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;polymerized_dntp.csv&quot;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="n">chart_polymerized_dntp</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;polymerized_dNTP_Conc.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># ntps</span>
+    <span class="n">ntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">797</span><span class="p">,</span> <span class="mi">5979</span><span class="p">,</span> <span class="mi">10001</span><span class="p">,</span> <span class="mi">15592</span><span class="p">]</span>
+    <span class="n">selected_ntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ntp_cols</span><span class="p">]</span>
+    <span class="n">ntp_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[</span><span class="n">selected_ntp_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">ntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="s2">&quot;ATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;CTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;GTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;UTP (C)&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Add total NTPs column</span>
+    <span class="n">ntp_df</span><span class="p">[</span><span class="s2">&quot;Total NTPs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ntp_df</span><span class="p">[[</span><span class="s2">&quot;ATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;CTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;GTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;UTP (C)&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 2. Add volume to NTP dataframe</span>
+    <span class="n">ntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;listeners__mass__volume&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Computing concentration</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;CTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;GTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;UTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;Total NTPs&quot;</span><span class="p">]:</span>
+        <span class="n">mols</span> <span class="o">=</span> <span class="n">ntp_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">AVOGADRO</span>
+        <span class="n">volume_fl</span> <span class="o">=</span> <span class="n">ntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">fL</span>
+        <span class="n">conc</span> <span class="o">=</span> <span class="p">(</span><span class="n">mols</span> <span class="o">/</span> <span class="n">volume_fl</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">micromolar</span><span class="p">)</span>
+        <span class="n">new_col_name</span> <span class="o">=</span> <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot; (µM)&quot;</span>
+        <span class="n">ntp_df</span><span class="p">[</span><span class="n">new_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conc</span><span class="o">.</span><span class="n">magnitude</span>
+
+    <span class="c1"># Columns with concentration values ending with &quot; (µM)&quot;</span>
+    <span class="n">ntp_conc_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">ntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; (µM)&quot;</span><span class="p">)]</span>
+
+    <span class="n">plot_df3</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">ntp_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">ntp_conc_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;NTP&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_ntp</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df3</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Concentration (µM):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;NTP:N&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;NTP&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;NTP Concentrations Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">ntp_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;ntp.csv&quot;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">chart_ntp</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;NTP_Conc.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># polymerized_NTPs</span>
+    <span class="n">polymerized_ntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">15981</span><span class="p">,</span> <span class="mi">15990</span><span class="p">,</span> <span class="mi">16062</span><span class="p">,</span> <span class="mi">16206</span><span class="p">]</span>
+    <span class="n">selected_polymerized_ntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">polymerized_ntp_cols</span>
+    <span class="p">]</span>
+    <span class="n">polymerized_ntp_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[</span><span class="n">selected_polymerized_ntp_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">polymerized_ntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_ATP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_CTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_GTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_UTP (C)&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Add total NTPs column</span>
+    <span class="n">polymerized_ntp_df</span><span class="p">[</span><span class="s2">&quot;Total polymerized_NTPs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">polymerized_ntp_df</span><span class="p">[</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;polymerized_ATP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_CTP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_GTP (C)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;polymerized_UTP (C)&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># 2. Add volume to NTP dataframe</span>
+    <span class="n">polymerized_ntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;listeners__mass__volume&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Computing concentration</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;polymerized_ATP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_CTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_GTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;polymerized_UTP (C)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Total polymerized_NTPs&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">mols</span> <span class="o">=</span> <span class="n">polymerized_ntp_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">AVOGADRO</span>
+        <span class="n">volume_fl</span> <span class="o">=</span> <span class="n">polymerized_ntp_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">fL</span>
+        <span class="n">conc</span> <span class="o">=</span> <span class="p">(</span><span class="n">mols</span> <span class="o">/</span> <span class="n">volume_fl</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">micromolar</span><span class="p">)</span>
+        <span class="n">new_col_name</span> <span class="o">=</span> <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot; (µM)&quot;</span>
+        <span class="n">polymerized_ntp_df</span><span class="p">[</span><span class="n">new_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conc</span><span class="o">.</span><span class="n">magnitude</span>
+
+    <span class="c1"># Columns with concentration values ending with &quot; (µM)&quot;</span>
+    <span class="n">polymerized_ntp_conc_cols</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">polymerized_ntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; (µM)&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="n">plot_df4</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">polymerized_ntp_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">polymerized_ntp_conc_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;polymerized_NTP&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_polymerized_ntp</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df4</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Concentration (µM):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;polymerized_NTP:N&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;polymerized_NTP&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Polymerized NTP Concentrations Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_polymerized_ntp</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;Polymerized_NTP_Conc.html&quot;</span><span class="p">))</span>
+
+    <span class="c1">#  RNAPs</span>
+    <span class="n">inactive_RNAP_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">691</span><span class="p">]</span>
+    <span class="n">selected_inactive_RNAP_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inactive_RNAP_cols</span>
+    <span class="p">]</span>
+    <span class="n">RNAP_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[</span><span class="n">selected_inactive_RNAP_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">RNAP_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="s2">&quot;inactive_RNAP (C)&quot;</span><span class="p">]</span>
+
+    <span class="n">query3</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">               SELECT time, listeners__unique_molecule_counts__active_RNAP</span>
+<span class="s2">               FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">               ORDER BY time ASC</span>
+<span class="s2">               &quot;&quot;&quot;</span>
+
+    <span class="n">output_df3</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query3</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+
+    <span class="c1"># 2. Add active to RNAP dataframe</span>
+    <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;active_RNAP (C)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df3</span><span class="p">[</span>
+        <span class="s2">&quot;listeners__unique_molecule_counts__active_RNAP&quot;</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># 2. Add volume to RNAP dataframe</span>
+    <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;listeners__mass__volume&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Computing concentration</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;inactive_RNAP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;active_RNAP (C)&quot;</span><span class="p">]:</span>
+        <span class="n">mols</span> <span class="o">=</span> <span class="n">RNAP_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">AVOGADRO</span>
+        <span class="n">volume_fl</span> <span class="o">=</span> <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;Volume (fL)&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">fL</span>
+        <span class="n">conc</span> <span class="o">=</span> <span class="p">(</span><span class="n">mols</span> <span class="o">/</span> <span class="n">volume_fl</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">micromolar</span><span class="p">)</span>
+        <span class="n">new_col_name</span> <span class="o">=</span> <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot; (µM)&quot;</span>
+        <span class="n">RNAP_df</span><span class="p">[</span><span class="n">new_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conc</span><span class="o">.</span><span class="n">magnitude</span>
+
+    <span class="c1"># Columns with concentration values ending with &quot; (µM)&quot;</span>
+    <span class="n">RNAP_conc_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">RNAP_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; (µM)&quot;</span><span class="p">)]</span>
+
+    <span class="n">plot_df5</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">RNAP_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">RNAP_conc_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;RNAP&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_RNAP</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df5</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Concentration (µM):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Concentration (µM)&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;RNAP:N&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;RNAP&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;RNAP Concentrations Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_RNAP</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;RNAP_Conc.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Computing fraction of active RNAPs</span>
+    <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;active_RNAP fraction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;active_RNAP (C)&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;inactive_RNAP (C)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">RNAP_df</span><span class="p">[</span><span class="s2">&quot;active_RNAP (C)&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">plot_df_frac</span> <span class="o">=</span> <span class="n">RNAP_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="s2">&quot;active_RNAP fraction&quot;</span><span class="p">]]</span>
+
+    <span class="n">chart_frac</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">plot_df_frac</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;green&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;active_RNAP fraction:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Fraction of Active RNAPs&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Fraction of Active RNAPs Over Time&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save fraction plot</span>
+    <span class="n">chart_frac</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;RNAP_ActiveFraction.html&quot;</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, The Vivarium E. coli Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

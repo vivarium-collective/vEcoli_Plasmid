@@ -1,0 +1,429 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ecoli.analysis.multiseed.DnaA_analysis &mdash; Vivarium E. coli 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vivarium E. coli
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../stores.html">Stores</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../processes.html">Processes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composites.html">Composites</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows.html">Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../data_ingestion.html">Experimental Data Ingestion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../output.html">Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../hpc.html">HPC Clusters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../gcloud.html">Google Cloud</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ci.html">Continuous Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pycharm.html">PyCharm Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../diffs.html">Model Differences From wcEcoli</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vivarium E. coli</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">ecoli.analysis.multiseed.DnaA_analysis</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for ecoli.analysis.multiseed.DnaA_analysis</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">duckdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckDBPyConnection</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">altair</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">alt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ecoli.library.parquet_emitter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">read_stacked_columns</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="n">COLORS_256</span> <span class="o">=</span> <span class="p">[</span>  <span class="c1"># From colorbrewer2.org, qualitative 8-class set 1</span>
+    <span class="p">[</span><span class="mi">228</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">55</span><span class="p">,</span> <span class="mi">126</span><span class="p">,</span> <span class="mi">184</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">175</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">152</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">163</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">127</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">51</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">86</span><span class="p">,</span> <span class="mi">40</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">247</span><span class="p">,</span> <span class="mi">129</span><span class="p">,</span> <span class="mi">191</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">%02x%02x%02x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">color</span> <span class="ow">in</span> <span class="n">COLORS_256</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="plot">
+<a class="viewcode-back" href="../../../../reference/api/ecoli/ecoli.analysis.multiseed.DnaA_analysis.html#ecoli.analysis.multiseed.DnaA_analysis.plot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">DuckDBPyConnection</span><span class="p">,</span>
+    <span class="n">history_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">success_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sim_data_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+    <span class="n">validation_data_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">outdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">variant_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">variant_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="c1">#  RNAPs</span>
+
+    <span class="n">DnaA_box_counts_sql</span> <span class="o">=</span> <span class="n">read_stacked_columns</span><span class="p">(</span>
+        <span class="n">history_sql</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;listeners__unique_molecule_counts__DnaA_box AS DnaA_box_counts&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">order_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">               SELECT time,lineage_seed, listeners__unique_molecule_counts__DnaA_box</span>
+<span class="s2">               FROM (</span><span class="si">{</span><span class="n">DnaA_box_counts_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">               ORDER BY lineage_seed,time </span>
+<span class="s2">               &quot;&quot;&quot;</span>
+
+    <span class="n">output_df</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Rename for convenience</span>
+    <span class="n">output_df</span> <span class="o">=</span> <span class="n">output_df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;listeners__unique_molecule_counts__DnaA_box&quot;</span><span class="p">:</span> <span class="s2">&quot;counts&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># --- STEP 1: Compute median trajectory ---</span>
+    <span class="n">median_df</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">output_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">)[</span><span class="s2">&quot;counts&quot;</span><span class="p">]</span>
+        <span class="o">.</span><span class="n">median</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;counts&quot;</span><span class="p">:</span> <span class="s2">&quot;median_counts&quot;</span><span class="p">})</span>
+    <span class="p">)</span>
+
+    <span class="c1"># --- STEP 2: Find median seed ---</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">output_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">median_df</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">)</span>
+    <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="s2">&quot;counts&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;median_counts&quot;</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="n">seed_scores</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;lineage_seed&quot;</span><span class="p">)[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+    <span class="n">median_seed</span> <span class="o">=</span> <span class="n">seed_scores</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;diff&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;lineage_seed&quot;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Median seed:&quot;</span><span class="p">,</span> <span class="n">median_seed</span><span class="p">)</span>
+
+    <span class="c1"># --- STEP 3: Split data ---</span>
+    <span class="n">background_df</span> <span class="o">=</span> <span class="n">output_df</span><span class="p">[</span><span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;lineage_seed&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">median_seed</span><span class="p">]</span>
+    <span class="n">highlight_df</span> <span class="o">=</span> <span class="n">output_df</span><span class="p">[</span><span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;lineage_seed&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">median_seed</span><span class="p">]</span>
+
+    <span class="c1"># --- STEP 4: Plot ---</span>
+    <span class="n">background_chart</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">background_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">(</span><span class="n">opacity</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">strokeWidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;counts:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;DnaA box counts&quot;</span><span class="p">),</span>
+            <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;lineage_seed:N&quot;</span><span class="p">,</span>  <span class="c1"># IMPORTANT</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">highlight_chart</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">highlight_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">(</span><span class="n">strokeWidth</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">&quot;counts:Q&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">chart</span> <span class="o">=</span> <span class="p">(</span><span class="n">background_chart</span> <span class="o">+</span> <span class="n">highlight_chart</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;DnaA Box Counts Across Multiple Seeds&quot;</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># --- SAVE ---</span>
+    <span class="n">output_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;DnaAboxescounts_multiseed.csv&quot;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">html_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;DnaAboxescounts_multiseed.html&quot;</span><span class="p">)</span>
+    <span class="n">chart</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path</span><span class="p">)</span></div>
+
+
+    <span class="c1"># query2 = f&quot;&quot;&quot;</span>
+    <span class="c1">#                SELECT time, listeners__replication_data__free_DnaA_boxes</span>
+    <span class="c1">#                FROM ({history_sql})</span>
+    <span class="c1">#                ORDER BY time ASC</span>
+    <span class="c1">#                &quot;&quot;&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># output_df2 = conn.sql(query2).df()</span>
+    <span class="c1"># # Convert time from seconds to minutes</span>
+    <span class="c1"># output_df2[&quot;Time (min)&quot;] = output_df2[&quot;time&quot;] / 60</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Create Altair line chart</span>
+    <span class="c1"># chart2 = (</span>
+    <span class="c1">#     alt.Chart(output_df2)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;, title=&quot;Time (min)&quot;),</span>
+    <span class="c1">#         y=alt.Y(</span>
+    <span class="c1">#             &quot;listeners__replication_data__free_DnaA_boxes:Q&quot;,</span>
+    <span class="c1">#             title=&quot;Free DnaA box counts&quot;,</span>
+    <span class="c1">#         ),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(</span>
+    <span class="c1">#         title=&quot;Count of free DnaA boxes Over Time&quot;,</span>
+    <span class="c1">#         width=600,</span>
+    <span class="c1">#         height=400,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+    <span class="c1"># output_df2.to_csv(os.path.join(outdir, &quot;freeDnaAboxescounts.csv&quot;), index=False)</span>
+    <span class="c1"># html_path2 = os.path.join(outdir, &quot;freeDnaAboxescounts.html&quot;)</span>
+    <span class="c1"># chart2.save(html_path2)</span>
+    <span class="c1">#</span>
+    <span class="c1"># query3 = f&quot;&quot;&quot;</span>
+    <span class="c1">#                    SELECT time, listeners__replication_data__total_DnaA_boxes</span>
+    <span class="c1">#                    FROM ({history_sql})</span>
+    <span class="c1">#                    ORDER BY time ASC</span>
+    <span class="c1">#                    &quot;&quot;&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># output_df3 = conn.sql(query3).df()</span>
+    <span class="c1"># # Convert time from seconds to minutes</span>
+    <span class="c1"># output_df3[&quot;Time (min)&quot;] = output_df3[&quot;time&quot;] / 60</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Create Altair line chart</span>
+    <span class="c1"># chart3 = (</span>
+    <span class="c1">#     alt.Chart(output_df3)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;, title=&quot;Time (min)&quot;),</span>
+    <span class="c1">#         y=alt.Y(</span>
+    <span class="c1">#             &quot;listeners__replication_data__total_DnaA_boxes:Q&quot;,</span>
+    <span class="c1">#             title=&quot;Total DnaA box counts&quot;,</span>
+    <span class="c1">#         ),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(</span>
+    <span class="c1">#         title=&quot;Count of total DnaA boxes Over Time&quot;,</span>
+    <span class="c1">#         width=600,</span>
+    <span class="c1">#         height=400,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+    <span class="c1"># output_df3.to_csv(os.path.join(outdir, &quot;totalDnaAboxescounts.csv&quot;), index=False)</span>
+    <span class="c1"># html_path3 = os.path.join(outdir, &quot;totalDnaAboxescounts.html&quot;)</span>
+    <span class="c1"># chart3.save(html_path3)</span>
+    <span class="c1">#</span>
+    <span class="c1"># query6 = f&quot;&quot;&quot;</span>
+    <span class="c1">#         SELECT time, bulk</span>
+    <span class="c1">#         FROM ({history_sql})</span>
+    <span class="c1">#         ORDER BY time ASC</span>
+    <span class="c1">#         &quot;&quot;&quot;</span>
+    <span class="c1"># output_df6 = conn.sql(query6).df()</span>
+    <span class="c1"># time_minutes = output_df6[&quot;time&quot;].to_numpy() / 60</span>
+    <span class="c1"># bulk_matrix = np.stack(output_df6[&quot;bulk&quot;].values).astype(int)</span>
+    <span class="c1"># bulk_df = pd.DataFrame(bulk_matrix)</span>
+    <span class="c1"># bulk_df.insert(0, &quot;Time (min)&quot;, time_minutes)</span>
+    <span class="c1"># bulk_df.to_csv(os.path.join(outdir, &quot;bulk_matrix.csv&quot;), index=False)</span>
+    <span class="c1">#</span>
+    <span class="c1"># # DnaA proteins</span>
+    <span class="c1"># DnaA_cols = [11524, 10781]</span>
+    <span class="c1"># # Create a DataFrame with just Time and DnaAproteins</span>
+    <span class="c1"># selected_cols = [&quot;Time (min)&quot;] + [bulk_df.columns[i] for i in DnaA_cols]</span>
+    <span class="c1"># DnaAprotein_df = bulk_df[selected_cols].copy()</span>
+    <span class="c1"># DnaAprotein_df.columns = [&quot;Time (min)&quot;, &quot;DnaA&quot;, &quot;DnaA-ATP&quot;]</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Melt for plotting</span>
+    <span class="c1"># melted_DnaA_df = pd.melt(</span>
+    <span class="c1">#     DnaAprotein_df, id_vars=[&quot;Time (min)&quot;], var_name=&quot;Form&quot;, value_name=&quot;Counts&quot;</span>
+    <span class="c1"># )</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Plot</span>
+    <span class="c1"># chart6 = (</span>
+    <span class="c1">#     alt.Chart(melted_DnaA_df)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;, title=&quot;Time (min)&quot;),</span>
+    <span class="c1">#         y=alt.Y(&quot;Counts:Q&quot;, title=&quot;DnaA (counts)&quot;),</span>
+    <span class="c1">#         color=alt.Color(&quot;Form:N&quot;, scale=alt.Scale(range=COLORS)),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(title=&quot;DnaA Counts Over Time&quot;)</span>
+    <span class="c1"># )</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Save or display</span>
+    <span class="c1"># chart6.save(os.path.join(outdir, &quot;DnaA_counts.html&quot;))</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Full chromosome counts</span>
+    <span class="c1"># query7 = f&quot;&quot;&quot;</span>
+    <span class="c1">#                            SELECT time, listeners__unique_molecule_counts__full_chromosome</span>
+    <span class="c1">#                            FROM ({history_sql})</span>
+    <span class="c1">#                            ORDER BY time ASC</span>
+    <span class="c1">#                            &quot;&quot;&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># output_df7 = conn.sql(query7).df()</span>
+    <span class="c1"># # Convert time from seconds to minutes</span>
+    <span class="c1"># output_df7[&quot;Time (min)&quot;] = output_df7[&quot;time&quot;] / 60</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Create Altair line chart</span>
+    <span class="c1"># chart7 = (</span>
+    <span class="c1">#     alt.Chart(output_df7)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;, title=&quot;Time (min)&quot;),</span>
+    <span class="c1">#         y=alt.Y(</span>
+    <span class="c1">#             &quot;listeners__unique_molecule_counts__full_chromosome:Q&quot;,</span>
+    <span class="c1">#             title=&quot;Full chromosome counts&quot;,</span>
+    <span class="c1">#         ),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(</span>
+    <span class="c1">#         title=&quot;Count of Full Chromosomes Over Time&quot;,</span>
+    <span class="c1">#         width=600,</span>
+    <span class="c1">#         height=400,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+    <span class="c1">#</span>
+    <span class="c1"># html_path7 = os.path.join(outdir, &quot;fullchromosomecounts.html&quot;)</span>
+    <span class="c1"># chart7.save(html_path7)</span>
+    <span class="c1">#</span>
+    <span class="c1"># # active replisomes</span>
+    <span class="c1"># query8 = f&quot;&quot;&quot;</span>
+    <span class="c1">#                                SELECT time, listeners__unique_molecule_counts__active_replisome</span>
+    <span class="c1">#                                FROM ({history_sql})</span>
+    <span class="c1">#                                ORDER BY time ASC</span>
+    <span class="c1">#                                &quot;&quot;&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># output_df8 = conn.sql(query8).df()</span>
+    <span class="c1"># # Convert time from seconds to minutes</span>
+    <span class="c1"># output_df8[&quot;Time (min)&quot;] = output_df8[&quot;time&quot;] / 60</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Create Altair line chart</span>
+    <span class="c1"># chart8 = (</span>
+    <span class="c1">#     alt.Chart(output_df8)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;, title=&quot;Time (min)&quot;),</span>
+    <span class="c1">#         y=alt.Y(</span>
+    <span class="c1">#             &quot;listeners__unique_molecule_counts__active_replisome:Q&quot;,</span>
+    <span class="c1">#             title=&quot;Active replisome counts&quot;,</span>
+    <span class="c1">#         ),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(</span>
+    <span class="c1">#         title=&quot;Count of Active Replisomes Over Time&quot;,</span>
+    <span class="c1">#         width=600,</span>
+    <span class="c1">#         height=400,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+    <span class="c1">#</span>
+    <span class="c1"># html_path8 = os.path.join(outdir, &quot;activereplisomecounts.html&quot;)</span>
+    <span class="c1"># chart8.save(html_path8)</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Prepare free + total box dfs</span>
+    <span class="c1"># free_df = output_df2[</span>
+    <span class="c1">#     [&quot;Time (min)&quot;, &quot;listeners__replication_data__free_DnaA_boxes&quot;]</span>
+    <span class="c1"># ].copy()</span>
+    <span class="c1"># free_df.columns = [&quot;Time (min)&quot;, &quot;Counts&quot;]</span>
+    <span class="c1"># free_df[&quot;Type&quot;] = &quot;Free DnaA boxes&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># total_df = output_df3[</span>
+    <span class="c1">#     [&quot;Time (min)&quot;, &quot;listeners__replication_data__total_DnaA_boxes&quot;]</span>
+    <span class="c1"># ].copy()</span>
+    <span class="c1"># total_df.columns = [&quot;Time (min)&quot;, &quot;Counts&quot;]</span>
+    <span class="c1"># total_df[&quot;Type&quot;] = &quot;Total DnaA boxes&quot;</span>
+    <span class="c1">#</span>
+    <span class="c1"># # DnaA protein already melted</span>
+    <span class="c1"># dnaA_df = melted_DnaA_df.copy()</span>
+    <span class="c1"># dnaA_df.columns = [&quot;Time (min)&quot;, &quot;Type&quot;, &quot;Counts&quot;]</span>
+    <span class="c1">#</span>
+    <span class="c1"># # Combine all</span>
+    <span class="c1"># top_df = pd.concat([dnaA_df, free_df, total_df], ignore_index=True)</span>
+    <span class="c1">#</span>
+    <span class="c1"># top_chart = (</span>
+    <span class="c1">#     alt.Chart(top_df)</span>
+    <span class="c1">#     .mark_line()</span>
+    <span class="c1">#     .encode(</span>
+    <span class="c1">#         x=alt.X(&quot;Time (min):Q&quot;),</span>
+    <span class="c1">#         y=alt.Y(&quot;Counts:Q&quot;, title=&quot;Counts&quot;),</span>
+    <span class="c1">#         color=alt.Color(&quot;Type:N&quot;, scale=alt.Scale(range=COLORS)),</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     .properties(</span>
+    <span class="c1">#         title=&quot;DnaA Dynamics and DnaA Box Availability&quot;,</span>
+    <span class="c1">#         width=700,</span>
+    <span class="c1">#         height=300,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, The Vivarium E. coli Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

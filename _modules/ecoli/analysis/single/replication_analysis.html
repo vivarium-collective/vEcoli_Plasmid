@@ -1,0 +1,608 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ecoli.analysis.single.replication_analysis &mdash; Vivarium E. coli 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vivarium E. coli
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../stores.html">Stores</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../processes.html">Processes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composites.html">Composites</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows.html">Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../data_ingestion.html">Experimental Data Ingestion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../output.html">Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../hpc.html">HPC Clusters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../gcloud.html">Google Cloud</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ci.html">Continuous Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pycharm.html">PyCharm Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../diffs.html">Model Differences From wcEcoli</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vivarium E. coli</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">ecoli.analysis.single.replication_analysis</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for ecoli.analysis.single.replication_analysis</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">duckdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckDBPyConnection</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">altair</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">alt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+
+<span class="n">COLORS_256</span> <span class="o">=</span> <span class="p">[</span>  <span class="c1"># From colorbrewer2.org, qualitative 8-class set 1</span>
+    <span class="p">[</span><span class="mi">228</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">55</span><span class="p">,</span> <span class="mi">126</span><span class="p">,</span> <span class="mi">184</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">175</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">152</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">163</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">127</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">51</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">86</span><span class="p">,</span> <span class="mi">40</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">247</span><span class="p">,</span> <span class="mi">129</span><span class="p">,</span> <span class="mi">191</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">%02x%02x%02x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">color</span> <span class="ow">in</span> <span class="n">COLORS_256</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="plot">
+<a class="viewcode-back" href="../../../../reference/api/ecoli/ecoli.analysis.single.replication_analysis.html#ecoli.analysis.single.replication_analysis.plot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">DuckDBPyConnection</span><span class="p">,</span>
+    <span class="n">history_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">success_sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sim_data_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+    <span class="n">validation_data_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">outdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">variant_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">variant_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    SELECT time, listeners__unique_molecule_counts__active_replisome</span>
+<span class="s2">    FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    ORDER BY time ASC</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="n">output_df</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Create Altair line chart</span>
+    <span class="n">chart</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">output_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span>
+                <span class="s2">&quot;listeners__unique_molecule_counts__active_replisome:Q&quot;</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="s2">&quot;active replisome counts&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;active replisome counts without plasmid&quot;</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">html_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;active_replisome_counts_noplasmid.html&quot;</span><span class="p">)</span>
+    <span class="n">chart</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path</span><span class="p">)</span>
+
+    <span class="n">query2</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        SELECT time, listeners__mass__cell_mass</span>
+<span class="s2">        FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">        ORDER BY time ASC</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+
+    <span class="n">output_df2</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query2</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df2</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Create Altair line chart</span>
+    <span class="n">chart_cellmass</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">output_df2</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span>
+                <span class="s2">&quot;listeners__mass__cell_mass:Q&quot;</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="s2">&quot;cell mass&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;cell mass (without plasmid)&quot;</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">html_path2</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;cell mass (no plasmid).html&quot;</span><span class="p">)</span>
+    <span class="n">chart_cellmass</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path2</span><span class="p">)</span>
+
+    <span class="n">query3</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">            SELECT time, listeners__mass__dna_mass</span>
+<span class="s2">            FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">            ORDER BY time ASC</span>
+<span class="s2">            &quot;&quot;&quot;</span>
+
+    <span class="n">output_df3</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query3</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df3</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df3</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Create Altair line chart</span>
+    <span class="n">chart_dnamass</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">output_df3</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span>
+                <span class="s2">&quot;listeners__mass__dna_mass:Q&quot;</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="s2">&quot;dna mass&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;dna mass (without plasmid)&quot;</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">html_path3</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;dna mass (no plasmid).html&quot;</span><span class="p">)</span>
+    <span class="n">chart_dnamass</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path3</span><span class="p">)</span>
+
+    <span class="n">query4</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                SELECT time, listeners__mass__growth</span>
+<span class="s2">                FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">                ORDER BY time ASC</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+
+    <span class="n">output_df4</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query4</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df4</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df4</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Create Altair line chart</span>
+    <span class="n">chart_growth</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">output_df4</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span>
+                <span class="s2">&quot;listeners__mass__growth:Q&quot;</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="s2">&quot;growth&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;growth (without plasmid)&quot;</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">html_path4</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;growth (no plasmid).html&quot;</span><span class="p">)</span>
+    <span class="n">chart_growth</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path4</span><span class="p">)</span>
+
+    <span class="n">query5</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    SELECT time, listeners__mass__instantaneous_growth_rate</span>
+<span class="s2">                    FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">                    ORDER BY time ASC</span>
+<span class="s2">                    &quot;&quot;&quot;</span>
+
+    <span class="n">output_df5</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query5</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">output_df5</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_df5</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+
+    <span class="c1"># Create Altair line chart</span>
+    <span class="n">chart_instantaneous_growth</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">output_df5</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span>
+                <span class="s2">&quot;listeners__mass__instantaneous_growth_rate:Q&quot;</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="s2">&quot;instantaneous growth&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;instantaneous growth (without plasmid)&quot;</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">html_path5</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;instantaneous growth (no plasmid).html&quot;</span><span class="p">)</span>
+    <span class="n">chart_instantaneous_growth</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">html_path5</span><span class="p">)</span>
+
+    <span class="n">query6</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                        SELECT time, listeners__fba_results__reaction_fluxes</span>
+<span class="s2">                        FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">                        ORDER BY time ASC</span>
+<span class="s2">                        &quot;&quot;&quot;</span>
+
+    <span class="n">output_df6</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query6</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="c1"># Convert time from seconds to minutes</span>
+    <span class="n">time_minutes</span> <span class="o">=</span> <span class="n">output_df6</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">60</span>
+    <span class="n">flux_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+        <span class="n">output_df6</span><span class="p">[</span><span class="s2">&quot;listeners__fba_results__reaction_fluxes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">flux_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">flux_matrix</span><span class="p">)</span>
+    <span class="n">flux_df</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="n">time_minutes</span><span class="p">)</span>
+    <span class="n">flux_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;flux_matrix.csv&quot;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1">#&#39;adenosine deoxyribonucleotides de novo biosynthesis II&#39;</span>
+    <span class="n">adenosine_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">flux_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">602</span><span class="p">,</span> <span class="mi">814</span><span class="p">,</span> <span class="mi">6771</span><span class="p">,</span> <span class="mi">6779</span><span class="p">]]</span>
+    <span class="n">adenosine_df</span> <span class="o">=</span> <span class="n">flux_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">adenosine_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">adenosine_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ADPREDUCT-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DADPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-745&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-747&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_adenosine_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">adenosine_df</span><span class="p">,</span> <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Reaction&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Extract flux values (exclude Time column)</span>
+    <span class="n">flux_values</span> <span class="o">=</span> <span class="n">adenosine_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># shape: (timepoints, reactions)</span>
+
+    <span class="c1"># Find non-zero values</span>
+    <span class="n">nonzero_fluxes</span> <span class="o">=</span> <span class="n">flux_values</span><span class="p">[</span><span class="n">flux_values</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Determine y-axis domain</span>
+    <span class="k">if</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Use max non-zero flux, padded slightly</span>
+        <span class="n">max_flux</span> <span class="o">=</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.05</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_flux</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># All fluxes are zero → let Altair auto-scale (will show flat line at 0)</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Undefined</span>
+
+    <span class="c1"># Plot</span>
+    <span class="n">chart_adenosine</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_adenosine_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Flux:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">y_scale</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Reaction:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Adenosine Deoxyribonucleotide Biosynthesis reaction fluxes (Without plasmid) &quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_adenosine</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;adenosine_counts.html&quot;</span><span class="p">))</span>
+
+    <span class="c1">#&#39;guanosine deoxyribonucleotides de novo biosynthesis II&#39;</span>
+    <span class="n">guanosine_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">flux_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">862</span><span class="p">,</span> <span class="mi">1034</span><span class="p">,</span> <span class="mi">6778</span><span class="p">,</span> <span class="mi">6780</span><span class="p">]]</span>
+    <span class="n">guanosine_df</span> <span class="o">=</span> <span class="n">flux_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">guanosine_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">guanosine_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DGDPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;GDPREDUCT-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-746&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-748&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_guanosine_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">guanosine_df</span><span class="p">,</span> <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Reaction&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Extract flux values (exclude Time column)</span>
+    <span class="n">flux_values</span> <span class="o">=</span> <span class="n">guanosine_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># shape: (timepoints, reactions)</span>
+
+    <span class="c1"># Find non-zero values</span>
+    <span class="n">nonzero_fluxes</span> <span class="o">=</span> <span class="n">flux_values</span><span class="p">[</span><span class="n">flux_values</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Determine y-axis domain</span>
+    <span class="k">if</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Use max non-zero flux, padded slightly</span>
+        <span class="n">max_flux</span> <span class="o">=</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.05</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_flux</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># All fluxes are zero → let Altair auto-scale (will show flat line at 0)</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Undefined</span>
+
+    <span class="c1"># Plot</span>
+    <span class="n">chart_guanosine</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_guanosine_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Flux:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">y_scale</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Reaction:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Guanosine Deoxyribonucleotide Biosynthesis reaction fluxes (Without plasmid) &quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_guanosine</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;guanosine_counts.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># &#39;pyrimidine deoxyribonucleotides de novo biosynthesis II&#39;</span>
+    <span class="n">pyrimidine2_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">flux_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">845</span><span class="p">,</span> <span class="mi">918</span><span class="p">,</span> <span class="mi">919</span><span class="p">,</span> <span class="mi">922</span><span class="p">,</span> <span class="mi">6054</span><span class="p">,</span> <span class="mi">6062</span><span class="p">]]</span>
+    <span class="n">pyrimidine2_df</span> <span class="o">=</span> <span class="n">flux_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">pyrimidine2_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">pyrimidine2_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DCTP-DEAM-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DTDPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DTMPKI-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DUTP-PYROP-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-723&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN0-724&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_pyrimidine2_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">pyrimidine2_df</span><span class="p">,</span> <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Reaction&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Extract flux values (exclude Time column)</span>
+    <span class="n">flux_values</span> <span class="o">=</span> <span class="n">pyrimidine2_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># shape: (timepoints, reactions)</span>
+
+    <span class="c1"># Find non-zero values</span>
+    <span class="n">nonzero_fluxes</span> <span class="o">=</span> <span class="n">flux_values</span><span class="p">[</span><span class="n">flux_values</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Determine y-axis domain</span>
+    <span class="k">if</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Use max non-zero flux, padded slightly</span>
+        <span class="n">max_flux</span> <span class="o">=</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.05</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_flux</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># All fluxes are zero → let Altair auto-scale (will show flat line at 0)</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Undefined</span>
+
+    <span class="c1"># Plot</span>
+    <span class="n">chart_pyrimidine2</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_pyrimidine2_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Flux:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">y_scale</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Reaction:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Pyrimidine Deoxyribonucleotide Biosynthesis II reaction fluxes (Without plasmid) &quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_pyrimidine2</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;pyrimidine2_counts.html&quot;</span><span class="p">))</span>
+
+    <span class="c1">#&#39;pyrimidine deoxyribonucleotides de novo biosynthesis I&#39;</span>
+    <span class="n">pyrimidine1_cols</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">flux_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">762</span><span class="p">,</span> <span class="mi">844</span><span class="p">,</span> <span class="mi">918</span><span class="p">,</span> <span class="mi">919</span><span class="p">,</span> <span class="mi">920</span><span class="p">,</span> <span class="mi">922</span><span class="p">,</span> <span class="mi">1755</span><span class="p">,</span> <span class="mi">9192</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">pyrimidine1_df</span> <span class="o">=</span> <span class="n">flux_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">pyrimidine1_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">pyrimidine1_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CDPREDUCT-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DCDPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DTDPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DTMPKI-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DUDPKIN-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DUTP-PYROP-RXN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RXN-12195&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;UDPREDUCT-RXN&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_pyrimidine1_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">pyrimidine1_df</span><span class="p">,</span> <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Reaction&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Extract flux values (exclude Time column)</span>
+    <span class="n">flux_values</span> <span class="o">=</span> <span class="n">pyrimidine1_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># shape: (timepoints, reactions)</span>
+
+    <span class="c1"># Find non-zero values</span>
+    <span class="n">nonzero_fluxes</span> <span class="o">=</span> <span class="n">flux_values</span><span class="p">[</span><span class="n">flux_values</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Determine y-axis domain</span>
+    <span class="k">if</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Use max non-zero flux, padded slightly</span>
+        <span class="n">max_flux</span> <span class="o">=</span> <span class="n">nonzero_fluxes</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.05</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_flux</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># All fluxes are zero → let Altair auto-scale (will show flat line at 0)</span>
+        <span class="n">y_scale</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">Undefined</span>
+
+    <span class="c1"># Plot</span>
+    <span class="n">chart_pyrimidine1</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_pyrimidine1_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Flux:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Flux&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">y_scale</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Reaction:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Pyrimidine Deoxyribonucleotide Biosynthesis I reaction fluxes (Without plasmid) &quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_pyrimidine1</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;pyrimidine1_counts.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Replisome subunits</span>
+
+    <span class="n">query7</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">            SELECT time, bulk</span>
+<span class="s2">            FROM (</span><span class="si">{</span><span class="n">history_sql</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">            ORDER BY time ASC</span>
+<span class="s2">            &quot;&quot;&quot;</span>
+    <span class="n">output_df_replisome</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="n">query7</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+    <span class="n">time_minutes</span> <span class="o">=</span> <span class="n">output_df_replisome</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span>
+    <span class="n">bulk_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">output_df_replisome</span><span class="p">[</span><span class="s2">&quot;bulk&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">bulk_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">bulk_matrix</span><span class="p">)</span>
+    <span class="n">bulk_df</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="n">time_minutes</span><span class="p">)</span>
+
+    <span class="n">replisome_subunit_cols</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">5377</span><span class="p">,</span> <span class="mi">6568</span><span class="p">,</span> <span class="mi">7233</span><span class="p">,</span> <span class="mi">7189</span><span class="p">,</span> <span class="mi">5305</span><span class="p">,</span> <span class="mi">5383</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">replisome_subunit_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">replisome_subunit_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">replisome_subunit_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CPLX0-3621[c]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;EG10239-MONOMER[c]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;EG11500-MONOMER[c]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;EG11412-MONOMER[c]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CPLX0-2361[c]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CPLX0-3761[c]&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_replisome_subunit_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">replisome_subunit_df</span><span class="p">,</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Subunit&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Counts&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_replisome_subunits</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_replisome_subunit_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Counts:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Counts&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Subunit:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Replisome subunit counts over time (without plasmids) &quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_replisome_subunits</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;replisome_subunit_counts.html&quot;</span><span class="p">))</span>
+
+    <span class="c1"># dntps</span>
+    <span class="n">dntp_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">bulk_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">6211</span><span class="p">,</span> <span class="mi">6222</span><span class="p">,</span> <span class="mi">6299</span><span class="p">,</span> <span class="mi">12449</span><span class="p">]]</span>
+    <span class="n">dntp_df</span> <span class="o">=</span> <span class="n">bulk_df</span><span class="p">[[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">dntp_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Rename for clarity</span>
+    <span class="n">dntp_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">,</span> <span class="s2">&quot;DATP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DCTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;DGTP (C)&quot;</span><span class="p">,</span> <span class="s2">&quot;TTP (C)&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Melt for plotting</span>
+    <span class="n">melted_dntp_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">dntp_df</span><span class="p">,</span> <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;Molecule&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;Counts&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">chart_dntp</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">alt</span><span class="o">.</span><span class="n">Chart</span><span class="p">(</span><span class="n">melted_dntp_df</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">mark_line</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">X</span><span class="p">(</span><span class="s2">&quot;Time (min):Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Time (min)&quot;</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Y</span><span class="p">(</span><span class="s2">&quot;Counts:Q&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Counts&quot;</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Color</span><span class="p">(</span><span class="s2">&quot;Molecule:N&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">alt</span><span class="o">.</span><span class="n">Scale</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="n">COLORS</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">properties</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;dntp counts over time (without plasmids)&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save or display</span>
+    <span class="n">chart_dntp</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;dntp_counts.html&quot;</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, The Vivarium E. coli Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+``ecoli.analysis.single.replication_analysis``
+==============================================
+.. automodule:: ecoli.analysis.single.replication_analysis
+   :private-members:
+   :exclude-members: _abc_impl
+   :members:
+   :undoc-members:
+   :show-inheritance:
